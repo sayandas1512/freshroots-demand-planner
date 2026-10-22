@@ -9,7 +9,10 @@ const schema = z.object({
   LLM_PRICE_IN_PER_MTOK: z.coerce.number().nonnegative().default(1),
   LLM_PRICE_OUT_PER_MTOK: z.coerce.number().nonnegative().default(5),
   CRON_SECRET: z.string().optional(),
-  APP_PASSWORD: z.string().optional(),
+  /** Keys the signed session cookie. Rotate it to sign everyone out. */
+  SESSION_SECRET: z.string().min(16).optional(),
+  /** JSON array of { email, name, role, password } used only by `npm run seed:users`. */
+  SEED_USERS: z.string().optional(),
   TZ: z.string().default("Asia/Kolkata"),
 });
 
@@ -24,10 +27,4 @@ function blankToUndefined(raw: NodeJS.ProcessEnv): Record<string, string | undef
 /** Server-side only. Never import from a client component. */
 export function getEnv(): Env {
   return schema.parse(blankToUndefined(process.env));
-}
-
-export function requireAppPassword(): string {
-  const pw = getEnv().APP_PASSWORD;
-  if (!pw) throw new Error("APP_PASSWORD is not set");
-  return pw;
 }

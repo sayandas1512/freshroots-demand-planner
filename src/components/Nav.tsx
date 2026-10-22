@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ROLE_LABEL, type Role } from "@/auth/roles";
 import { ThemeToggle } from "./ThemeToggle";
 
 const LINKS = [
@@ -12,7 +13,7 @@ const LINKS = [
   { href: "/backtest", label: "Backtest" },
 ];
 
-export function Nav() {
+export function Nav({ userName, role }: { userName: string; role: Role }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -41,6 +42,7 @@ export function Nav() {
         })}
       </nav>
       <div className="shell-spacer" />
+      <span className="user-chip" data-testid="user-chip">{userName} · {ROLE_LABEL[role]}</span>
       <ThemeToggle />
       <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
     </header>

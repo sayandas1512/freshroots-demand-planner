@@ -159,7 +159,7 @@ const TRACKS_SKU: ReadonlySet<IngestKind> = new Set(["sales", "inventory", "open
  * Validate, then apply one CSV in a single transaction. Idempotent: loading the same file twice leaves the
  * same data and reports every row as replaced the second time. Bad rows never stop the good ones.
  */
-export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text: string): Promise<IngestReport> {
+export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text: string, userId: string | null = null): Promise<IngestReport> {
   const parsed = parseCsv(kind, text);
   const base = { kind, fileName, totalRows: parsed.totalRows };
 
@@ -194,6 +194,7 @@ export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text
   await db.insert(ingestReports).values({
     kind,
     fileName: fileName.slice(0, 200),
+    userId,
     accepted: report.accepted,
     rejected: report.rejected,
     replaced: report.replaced,

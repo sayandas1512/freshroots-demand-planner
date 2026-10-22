@@ -15,6 +15,13 @@
       "when": 1792663502695,
       "tag": "0001_backtest_quantities",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792665743324,
+      "tag": "0002_users_and_actors",
+      "breakpoints": true
     }
   ]
 }

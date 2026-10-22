@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ordersFromRows, disagreements } from "@/backtest/compare";
 import { runBacktest } from "@/backtest/replay";
+import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
 import { LIMITS } from "@/ingest/mapping";
 import { parseCsv } from "@/ingest/parse";
@@ -14,6 +15,9 @@ export const maxDuration = 120;
 const fields = z.object({ from: z.string().regex(WEEK_PATTERN), to: z.string().regex(WEEK_PATTERN) });
 
 export async function POST(request: Request) {
+  const actor = await requirePermission(request, "backtest");
+  if (isResponse(actor)) return actor;
+  void actor;
   const limit = rateLimit(`backtest:${clientKey(request.headers)}`, 10, 60_000);
   if (!limit.ok) return NextResponse.json({ error: "Too many backtests. Wait a minute." }, { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } });
 

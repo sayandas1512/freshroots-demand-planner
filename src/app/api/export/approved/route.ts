@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
 import { toPurchaseOrderCsv } from "@/export/csv";
 import { approvedExportLines } from "@/export/query";
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
 
 /** Purchase-order CSV of approved and edited lines only. Rejected, pending and quantity-less lines are never included. */
 export async function GET(request: Request) {
+  const actor = await requirePermission(request, "export");
+  if (isResponse(actor)) return actor;
+  void actor;
   const run = new URL(request.url).searchParams.get("run");
   if (!z.string().uuid().safeParse(run).success) return NextResponse.json({ error: "run must be a run id" }, { status: 400 });
   const lines = await approvedExportLines(await getDb(), run as string);

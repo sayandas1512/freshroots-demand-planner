@@ -1,12 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
-const PASSWORD = "e2e-password";
+const USERS = {
+  planner: { email: "raghav@freshroots.test", password: "planner-pass-123" },
+  sponsor: { email: "deepa@freshroots.test", password: "sponsor-pass-123" },
+  data: { email: "priya@freshroots.test", password: "data-pass-12345" },
+  admin: { email: "it@freshroots.test", password: "admin-pass-1234" },
+} as const;
+type UserKey = keyof typeof USERS;
 
-async function login(page: Page) {
+async function login(page: Page, who: UserKey = "admin") {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
-  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByLabel("Email").fill(USERS[who].email);
+  await page.getByLabel("Password").fill(USERS[who].password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
 }

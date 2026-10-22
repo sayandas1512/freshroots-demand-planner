@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
 import { ingestCsv } from "@/ingest/ingest";
 import { LIMITS, isIngestKind } from "@/ingest/mapping";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request, ctx: { params: Promise<{ kind: string }> }) {
+  const actor = await requirePermission(request, "upload");
+  if (isResponse(actor)) return actor;
   const { kind } = await ctx.params;
   if (!isIngestKind(kind)) return NextResponse.json({ error: `Unknown file kind: ${kind}` }, { status: 404 });
 
@@ -31,6 +34,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ kind: stri
     text = await request.text();
   }
 
-  const report = await ingestCsv(await getDb(), kind, fileName, text);
+  const report = await ingestCsv(await getDb(), kind, fileName, text, actor.userId);
   return NextResponse.json(report, { status: report.fileError ? 422 : 200 });
 }

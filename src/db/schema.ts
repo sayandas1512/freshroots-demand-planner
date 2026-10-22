@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { LineMetrics } from "@/engine/types";
 
+export const roleEnum = pgEnum("user_role", ["planner", "sponsor", "data", "admin"]);
 export const perishabilityEnum = pgEnum("perishability", ["low", "high"]);
 export const actionEnum = pgEnum("action", ["REORDER_NOW", "REORDER_1_5X", "PAUSE", "HOLD"]);
 export const triggerEnum = pgEnum("run_trigger", ["cron", "manual", "backtest"]);
@@ -37,6 +38,20 @@ export const exceptionTypeEnum = pgEnum("exception_type", [
 export const exceptionStatusEnum = pgEnum("exception_status", ["open", "handled"]);
 
 const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    name: text("name").notNull(),
+    role: roleEnum("role").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: ts("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("users_email_idx").on(t.email)],
+);
 
 export const distributors = pgTable("distributors", {
   distributorId: text("distributor_id").primaryKey(),
@@ -106,6 +121,7 @@ export const ruleConfig = pgTable(
     isActive: boolean("is_active").notNull().default(false),
     createdAt: ts("created_at").notNull().defaultNow(),
     note: text("note").notNull().default(""),
+    createdBy: uuid("created_by"),
   },
   (t) => [
     uniqueIndex("rule_config_version_idx").on(t.version),
@@ -138,6 +154,7 @@ export const runs = pgTable(
     llmStatus: llmStatusEnum("llm_status").notNull().default("skipped"),
     llmCalls: integer("llm_calls").notNull().default(0),
     llmCostUsd: numeric("llm_cost_usd", { precision: 12, scale: 6 }),
+    startedBy: uuid("started_by"),
   },
   (t) => [index("runs_as_of_trigger_idx").on(t.asOfDate, t.trigger), index("runs_started_idx").on(t.startedAt), index("runs_status_idx").on(t.status)],
 );
@@ -160,6 +177,7 @@ export const recommendations = pgTable(
     finalQty: integer("final_qty"),
     decidedAt: ts("decided_at"),
     decidedNote: text("decided_note"),
+    decidedBy: uuid("decided_by"),
   },
   (t) => [
     index("recommendations_run_idx").on(t.runId),
@@ -181,6 +199,7 @@ export const exceptions = pgTable(
     status: exceptionStatusEnum("status").notNull().default("open"),
     handledNote: text("handled_note"),
     handledAt: ts("handled_at"),
+    handledBy: uuid("handled_by"),
   },
   (t) => [index("exceptions_run_idx").on(t.runId), index("exceptions_type_idx").on(t.type)],
 );
@@ -195,6 +214,7 @@ export const overrides = pgTable(
     toValue: text("to_value"),
     reason: text("reason").notNull(),
     at: ts("at").notNull().defaultNow(),
+    userId: uuid("user_id"),
   },
   (t) => [index("overrides_rec_idx").on(t.recommendationId), index("overrides_at_idx").on(t.at)],
 );
@@ -244,6 +264,7 @@ export const ingestReports = pgTable(
     replaced: integer("replaced").notNull(),
     detail: jsonb("detail").$type<Record<string, unknown>>().notNull(),
     at: ts("at").notNull().defaultNow(),
+    userId: uuid("user_id"),
   },
   (t) => [index("ingest_reports_kind_at_idx").on(t.kind, t.at)],
 );

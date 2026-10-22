@@ -13,11 +13,13 @@ export function LoginForm() {
     event.preventDefault();
     setBusy(true);
     setError(null);
-    const password = String(new FormData(event.currentTarget).get("password") ?? "");
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get("email") ?? "");
+    const password = String(form.get("password") ?? "");
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ email, password }),
     });
     if (res.ok) {
       const next = params.get("next");
@@ -26,14 +28,18 @@ export function LoginForm() {
       return;
     }
     setBusy(false);
-    setError(res.status === 429 ? "Too many attempts. Wait a minute and try again." : "That password is not right.");
+    setError(res.status === 429 ? "Too many attempts. Wait a minute and try again." : "That email or password is not right.");
   }
 
   return (
     <form onSubmit={submit}>
       <label className="field">
+        Email
+        <input type="email" name="email" autoComplete="username" required autoFocus />
+      </label>
+      <label className="field">
         Password
-        <input type="password" name="password" autoComplete="current-password" required autoFocus />
+        <input type="password" name="password" autoComplete="current-password" required />
       </label>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>

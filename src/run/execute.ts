@@ -35,7 +35,7 @@ export interface StartedRun {
  * - Same as_of_date and trigger within 10 minutes: return that run (idempotency).
  * - Another run is still going: return it, so two runs never overlap.
  */
-export async function startRun(db: Db, input: { trigger: RunTrigger; asOf: string; now?: Date }): Promise<StartedRun> {
+export async function startRun(db: Db, input: { trigger: RunTrigger; asOf: string; now?: Date; startedBy?: string | null }): Promise<StartedRun> {
   parseDate(input.asOf);
   const now = input.now ?? new Date();
   return db.transaction(async (tx) => {
@@ -70,7 +70,7 @@ export async function startRun(db: Db, input: { trigger: RunTrigger; asOf: strin
 
     const [row] = await tx
       .insert(runs)
-      .values({ trigger: input.trigger, asOfDate: input.asOf, startedAt: now, counts: { steps: {} } })
+      .values({ trigger: input.trigger, asOfDate: input.asOf, startedAt: now, counts: { steps: {} }, startedBy: input.startedBy ?? null })
       .returning({ id: runs.id });
     if (!row) throw new Error("Could not create run");
     return { runId: row.id, created: true, reason: "created" as const };

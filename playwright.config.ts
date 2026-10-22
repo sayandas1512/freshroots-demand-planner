@@ -13,10 +13,10 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
     // Fresh embedded database, the five fixtures, then the production build.
-    command: `rm -rf .data/e2e && npm run build && npm run seed && npx next start -p ${PORT}`,
+    command: `rm -rf .data/e2e && npm run build && npm run seed && npm run seed:users && npx next start -p ${PORT}`,
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 240_000,
-    env: { PGLITE_DIR: ".data/e2e", APP_PASSWORD: "e2e-password", CRON_SECRET: "e2e-cron-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "" },
+    env: { PGLITE_DIR: ".data/e2e", SESSION_SECRET: "e2e-session-secret-0123456789", SEED_USERS: JSON.stringify([{ email: "raghav@freshroots.test", name: "Raghav", role: "planner", password: "planner-pass-123" }, { email: "deepa@freshroots.test", name: "Deepa", role: "sponsor", password: "sponsor-pass-123" }, { email: "priya@freshroots.test", name: "Priya", role: "data", password: "data-pass-12345" }, { email: "it@freshroots.test", name: "IT Admin", role: "admin", password: "admin-pass-1234" }]), CRON_SECRET: "e2e-cron-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "" },
   },
 });

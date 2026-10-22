@@ -26,7 +26,7 @@ const describe = (action: string, qty: number | null): string => (qty === null ?
  * Record Raghav's decision on one line. Edits and rejections require a reason and are written to the
  * override log, which is how his undocumented 15 to 20% becomes documented over time.
  */
-export async function applyDecision(db: Db, recommendationId: string, input: DecisionInput, now: Date = new Date()) {
+export async function applyDecision(db: Db, recommendationId: string, input: DecisionInput, userId: string | null = null, now: Date = new Date()) {
   return db.transaction(async (tx) => {
     const [rec] = await tx.select().from(recommendations).where(eq(recommendations.id, recommendationId)).limit(1);
     if (!rec) throw new NotFoundError("Recommendation not found");
@@ -34,19 +34,19 @@ export async function applyDecision(db: Db, recommendationId: string, input: Dec
     const proposed = describe(rec.action, rec.qty);
     switch (input.action) {
       case "approve":
-        await tx.update(recommendations).set({ status: "approved", finalQty: rec.qty, decidedAt: now, decidedNote: null }).where(eq(recommendations.id, rec.id));
+        await tx.update(recommendations).set({ status: "approved", finalQty: rec.qty, decidedAt: now, decidedNote: null, decidedBy: userId }).where(eq(recommendations.id, rec.id));
         break;
       case "edit":
-        await tx.update(recommendations).set({ status: "edited", finalQty: input.qty, decidedAt: now, decidedNote: input.reason }).where(eq(recommendations.id, rec.id));
-        await tx.insert(overrides).values({ recommendationId: rec.id, field: "qty", fromValue: rec.qty === null ? `${rec.action} (no quantity)` : String(rec.qty), toValue: String(input.qty), reason: input.reason, at: now });
+        await tx.update(recommendations).set({ status: "edited", finalQty: input.qty, decidedAt: now, decidedNote: input.reason, decidedBy: userId }).where(eq(recommendations.id, rec.id));
+        await tx.insert(overrides).values({ recommendationId: rec.id, field: "qty", fromValue: rec.qty === null ? `${rec.action} (no quantity)` : String(rec.qty), toValue: String(input.qty), reason: input.reason, at: now, userId });
         break;
       case "reject":
-        await tx.update(recommendations).set({ status: "rejected", finalQty: null, decidedAt: now, decidedNote: input.reason }).where(eq(recommendations.id, rec.id));
-        await tx.insert(overrides).values({ recommendationId: rec.id, field: "status", fromValue: proposed, toValue: "rejected", reason: input.reason, at: now });
+        await tx.update(recommendations).set({ status: "rejected", finalQty: null, decidedAt: now, decidedNote: input.reason, decidedBy: userId }).where(eq(recommendations.id, rec.id));
+        await tx.insert(overrides).values({ recommendationId: rec.id, field: "status", fromValue: proposed, toValue: "rejected", reason: input.reason, at: now, userId });
         break;
       case "undo":
-        await tx.update(recommendations).set({ status: "pending", finalQty: null, decidedAt: null, decidedNote: null }).where(eq(recommendations.id, rec.id));
-        await tx.insert(overrides).values({ recommendationId: rec.id, field: "status", fromValue: rec.status, toValue: "pending", reason: "Decision undone by reviewer", at: now });
+        await tx.update(recommendations).set({ status: "pending", finalQty: null, decidedAt: null, decidedNote: null, decidedBy: userId }).where(eq(recommendations.id, rec.id));
+        await tx.insert(overrides).values({ recommendationId: rec.id, field: "status", fromValue: rec.status, toValue: "pending", reason: "Decision undone by reviewer", at: now, userId });
         break;
     }
     const [updated] = await tx.select().from(recommendations).where(eq(recommendations.id, rec.id)).limit(1);
@@ -54,10 +54,10 @@ export async function applyDecision(db: Db, recommendationId: string, input: Dec
   });
 }
 
-export async function applyExceptionAction(db: Db, exceptionId: string, input: z.infer<typeof handleExceptionSchema>, now: Date = new Date()) {
+export async function applyExceptionAction(db: Db, exceptionId: string, input: z.infer<typeof handleExceptionSchema>, userId: string | null = null, now: Date = new Date()) {
   const [row] = await db.select().from(exceptions).where(eq(exceptions.id, exceptionId)).limit(1);
   if (!row) throw new NotFoundError("Exception not found");
-  const patch = input.action === "handle" ? { status: "handled" as const, handledNote: input.note, handledAt: now } : { status: "open" as const, handledNote: null, handledAt: null };
+  const patch = input.action === "handle" ? { status: "handled" as const, handledNote: input.note, handledAt: now, handledBy: userId } : { status: "open" as const, handledNote: null, handledAt: null, handledBy: userId };
   await db.update(exceptions).set(patch).where(eq(exceptions.id, exceptionId));
   const [updated] = await db.select().from(exceptions).where(eq(exceptions.id, exceptionId)).limit(1);
   return updated!;
