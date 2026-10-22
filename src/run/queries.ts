@@ -1,4 +1,4 @@
-import { desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { exceptions, recommendations, runHeadlines, runs, skus } from "@/db/schema";
 import type { ReviewData, ReviewException, ReviewRow, ReviewRun } from "./review-types";
@@ -20,13 +20,13 @@ function toRun(r: typeof runs.$inferSelect): ReviewRun {
 }
 
 export async function latestRun(db: Db): Promise<ReviewRun | null> {
-  const [row] = await db.select().from(runs).where(ne(runs.trigger, "backtest")).orderBy(desc(runs.startedAt)).limit(1);
+  const [row] = await db.select().from(runs).where(and(ne(runs.trigger, "backtest"), ne(runs.status, "skipped_killed"))).orderBy(desc(runs.startedAt)).limit(1);
   return row ? toRun(row) : null;
 }
 
 /** The review sheet for a run. Lines of a run that is still going are not shown: the sheet appears once it is saved. */
 export async function loadReview(db: Db, runId?: string): Promise<ReviewData | null> {
-  const run = runId ? (await db.select().from(runs).where(eq(runs.id, runId)).limit(1))[0] : (await db.select().from(runs).where(ne(runs.trigger, "backtest")).orderBy(desc(runs.startedAt)).limit(1))[0];
+  const run = runId ? (await db.select().from(runs).where(eq(runs.id, runId)).limit(1))[0] : (await db.select().from(runs).where(and(ne(runs.trigger, "backtest"), ne(runs.status, "skipped_killed"))).orderBy(desc(runs.startedAt)).limit(1))[0];
   if (!run) return null;
   const review = toRun(run);
   if (run.status === "running") return { run: review, headline: null, rows: [], exceptions: [] };

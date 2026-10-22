@@ -7,10 +7,12 @@ import { templateReason } from "@/ai/templates";
 import type { LlmProvider } from "@/ai/types";
 import { getEnv } from "@/config/env";
 import type { Db } from "@/db/client";
-import { exceptions as exceptionsTable, recommendations, runHeadlines, runs, type RunCounts } from "@/db/schema";
+import { exceptions as exceptionsTable, killState, recommendations, runHeadlines, runs, type RunCounts } from "@/db/schema";
 import { evaluateAll } from "@/engine/evaluate";
 import type { EvaluationResult } from "@/engine/types";
 import { daysBetween, parseDate } from "@/engine/weeks";
+import { runKillCheck } from "@/kill/run";
+import { log } from "@/lib/log";
 import { notifyRunProblem } from "./alerts";
 import { getActiveConfig } from "./config-store";
 import { loadEngineData } from "./load";
@@ -27,7 +29,7 @@ const RUN_LOCK_KEY = 7_155_001;
 export interface StartedRun {
   runId: string;
   created: boolean;
-  reason: "created" | "existing" | "in_progress";
+  reason: "created" | "existing" | "in_progress" | "killed";
 }
 
 /**
@@ -40,6 +42,15 @@ export async function startRun(db: Db, input: { trigger: RunTrigger; asOf: strin
   const now = input.now ?? new Date();
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${RUN_LOCK_KEY})`);
+
+    const [kill] = await tx.select({ active: killState.active }).from(killState).orderBy(desc(killState.at)).limit(1);
+    if (kill?.active) {
+      const [skipped] = await tx
+        .insert(runs)
+        .values({ trigger: input.trigger, asOfDate: input.asOf, startedAt: now, finishedAt: now, status: "skipped_killed", counts: { notes: ["Skipped: the kill switch is on."] }, startedBy: input.startedBy ?? null })
+        .returning({ id: runs.id });
+      return { runId: skipped?.id ?? "", created: false, reason: "killed" as const };
+    }
 
     await tx
       .update(runs)
@@ -54,6 +65,7 @@ export async function startRun(db: Db, input: { trigger: RunTrigger; asOf: strin
           eq(runs.asOfDate, input.asOf),
           eq(runs.trigger, input.trigger),
           ne(runs.status, "failed"),
+          ne(runs.status, "skipped_killed"),
           gt(runs.startedAt, new Date(now.getTime() - IDEMPOTENCY_WINDOW_MS)),
         ),
       )
@@ -238,6 +250,11 @@ export async function executeRun(db: Db, runId: string, options: ExecuteOptions 
         llmCostUsd: cost === null ? null : cost.toFixed(6),
       })
       .where(eq(runs.id, runId));
+    try {
+      await runKillCheck(db, { trigger: "run", runId });
+    } catch (err) {
+      log("error", "kill check failed", { runId, error: err instanceof Error ? err.message : "unknown" });
+    }
     if (degraded) {
       const reasons = [...(progress.snapshot().notes ?? []), ...(narrative.llmStatus === "partial" || narrative.llmStatus === "failed" ? [`LLM ${narrative.llmStatus}: template wording used`] : [])];
       await notifyRunProblem({ runId, asOf, status: "completed_degraded", reasons });

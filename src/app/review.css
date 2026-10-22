@@ -111,3 +111,5 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 @media (prefers-reduced-motion: reduce) {
   .row .cell, .progress span { transition: none; }
 }
+
+.shadow-title { vertical-align: middle; margin-left: var(--s-2); font-size: 11px; }

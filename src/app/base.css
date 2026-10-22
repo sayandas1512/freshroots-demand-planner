@@ -115,3 +115,7 @@ table.data td.num { font-family: var(--font-mono); font-variant-numeric: tabular
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 
 .user-chip { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+
+.kill-banner { margin: var(--s-3) var(--s-5) 0; }
+.stop-control { position: relative; }
+.stop-form { position: absolute; right: 0; top: 36px; width: 340px; z-index: 40; display: grid; gap: var(--s-2); box-shadow: var(--shadow); }

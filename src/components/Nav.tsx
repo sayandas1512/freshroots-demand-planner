@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ROLE_LABEL, type Role } from "@/auth/roles";
+import { StopControl } from "./StopControl";
 import { ThemeToggle } from "./ThemeToggle";
 
 const LINKS = [
@@ -13,7 +14,7 @@ const LINKS = [
   { href: "/backtest", label: "Backtest" },
 ];
 
-export function Nav({ userName, role }: { userName: string; role: Role }) {
+export function Nav({ userName, role, mode, killed }: { userName: string; role: Role; mode: "shadow" | "live"; killed: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -42,6 +43,8 @@ export function Nav({ userName, role }: { userName: string; role: Role }) {
         })}
       </nav>
       <div className="shell-spacer" />
+      {mode === "shadow" ? <span className="chip chip-demand" data-testid="shadow-chip" title="Runs and reviews work, but the export is blocked">SHADOW</span> : null}
+      {killed ? <span className="chip chip-stockout" data-testid="killed-chip">STOPPED</span> : <StopControl />}
       <span className="user-chip" data-testid="user-chip">{userName} · {ROLE_LABEL[role]}</span>
       <ThemeToggle />
       <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>

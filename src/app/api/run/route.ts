@@ -36,6 +36,7 @@ export async function POST(request: Request) {
 
   const db = await getDb();
   const started = await startRun(db, { trigger: "manual", asOf: parsed.data.asOf ?? todayIst(), startedBy: actor.userId });
+  if (started.reason === "killed") return NextResponse.json({ error: "The kill switch is on. Nothing was run.", runId: started.runId, reason: "killed" }, { status: 423 });
   if (started.created) after(() => executeRun(db, started.runId));
   return NextResponse.json({ runId: started.runId, reason: started.reason });
 }

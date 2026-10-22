@@ -14,6 +14,7 @@ export async function GET(request: Request) {
   }
   const db = await getDb();
   const started = await startRun(db, { trigger: "cron", asOf: todayIst() });
+  if (started.reason === "killed") return NextResponse.json({ runId: started.runId, reason: "killed" });
   if (started.created) after(() => executeRun(db, started.runId));
   return NextResponse.json({ runId: started.runId, reason: started.reason });
 }

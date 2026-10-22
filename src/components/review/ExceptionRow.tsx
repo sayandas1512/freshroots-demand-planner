@@ -10,6 +10,7 @@ interface Props {
   selected: boolean;
   panelOpen: boolean;
   busy: boolean;
+  locked: boolean;
   error: string | null;
   onSelect: (id: string) => void;
   onOpenPanel: (id: string) => void;
@@ -18,7 +19,7 @@ interface Props {
   onReopen: (item: ReviewException) => void;
 }
 
-function ExceptionRowImpl({ item, selected, panelOpen, busy, error, ...cb }: Props) {
+function ExceptionRowImpl({ item, selected, panelOpen, busy, error, locked, ...cb }: Props) {
   const handled = item.status === "handled";
   return (
     <div
@@ -48,7 +49,7 @@ function ExceptionRowImpl({ item, selected, panelOpen, busy, error, ...cb }: Pro
         <span className="status-text" data-status={handled ? "approved" : "pending"}>{handled ? "Handled" : "Open"}</span>
         {item.handledNote ? <span className="note" title={item.handledNote}>{item.handledNote}</span> : null}
         <div className="row-actions">
-          {handled ? (
+          {locked ? null : handled ? (
             <button type="button" className="btn btn-sm" onClick={() => cb.onReopen(item)} disabled={busy}>Reopen</button>
           ) : (
             <button type="button" className="btn btn-sm btn-primary" onClick={() => cb.onOpenPanel(item.id)} aria-keyshortcuts="H" title="Mark handled (H)">Mark handled</button>

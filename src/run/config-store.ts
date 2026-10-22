@@ -32,14 +32,14 @@ export async function listConfigVersions(db: Db, limit = 20): Promise<StoredConf
 }
 
 /** Append a new version and make it the only active one. Versions are never edited in place. */
-export async function createConfigVersion(db: Db, config: RuleConfig, note: string): Promise<StoredConfig> {
+export async function createConfigVersion(db: Db, config: RuleConfig, note: string, createdBy: string | null = null): Promise<StoredConfig> {
   const valid = ruleConfigSchema.parse(config);
   return db.transaction(async (tx) => {
     const [top] = await tx.select({ v: max(ruleConfig.version) }).from(ruleConfig);
     await tx.update(ruleConfig).set({ isActive: false }).where(eq(ruleConfig.isActive, true));
     const [row] = await tx
       .insert(ruleConfig)
-      .values({ version: (top?.v ?? 0) + 1, config: { ...valid }, isActive: true, note })
+      .values({ version: (top?.v ?? 0) + 1, config: { ...valid }, isActive: true, note, createdBy })
       .returning();
     if (!row) throw new Error("Could not create config version");
     return toStored(row);

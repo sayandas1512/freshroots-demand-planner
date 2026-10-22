@@ -3,10 +3,20 @@ import { BarChart } from "@/components/health/BarChart";
 import { CountUp } from "@/components/health/CountUp";
 import { RangeChart } from "@/components/health/RangeChart";
 import { Sparkline } from "@/components/health/Sparkline";
+import { desc } from "drizzle-orm";
+import { currentActor } from "@/auth/actor";
+import { can } from "@/auth/roles";
 import { getDb } from "@/db/client";
+import { killState } from "@/db/schema";
+import { goLiveReadiness } from "@/golive/readiness";
+import { previewKill } from "@/kill/run";
+import { getKillState } from "@/kill/state";
+import { getActiveConfig } from "@/run/config-store";
 import { compareToRange, formatLakh } from "@/run/baseline";
 import { loadHealth, type HealthRun } from "@/run/health";
 import { BaselineForm } from "./BaselineForm";
+import { GoLiveChecklist } from "./GoLiveChecklist";
+import { ClearKillForm } from "./KillPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Health · Freshroots" };
@@ -38,7 +48,17 @@ function RunRow({ r }: { r: HealthRun }) {
 export default async function HealthPage({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   const params = await searchParams;
   const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
-  const h = await loadHealth(await getDb(), q.slice(0, 100));
+  const db = await getDb();
+  const [h, kill, killCheck, readiness, active, actor, history] = await Promise.all([
+    loadHealth(db, q.slice(0, 100)),
+    getKillState(db),
+    previewKill(db),
+    goLiveReadiness(db),
+    getActiveConfig(db),
+    currentActor(),
+    db.select().from(killState).orderBy(desc(killState.at)).limit(8),
+  ]);
+  const role = actor?.role ?? "planner";
   const chronological = [...h.runs].reverse();
   const brief = h.baseline.find((b) => b.stockoutLossInrHigh !== null && b.writeoffInrHigh !== null);
   const entries = h.baseline.filter((b) => b.stockoutLossInrHigh === null);
@@ -67,6 +87,50 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           </div>
         </section>
       ) : null}
+
+      <section className="card section kill-section" aria-labelledby="kill-h" data-testid="kill-section">
+        <div className="log-head">
+          <h2 id="kill-h">Kill switch and criteria</h2>
+          <span className={`chip ${kill.active ? "chip-stockout" : "chip-hold"}`} data-testid="kill-status">{kill.active ? "ON: system stopped" : "Off"}</span>
+          <span className={`chip ${active.config.mode === "shadow" ? "chip-demand" : "chip-hold"}`}>{active.config.mode === "shadow" ? "SHADOW mode" : "LIVE mode"}</span>
+        </div>
+        {kill.active ? (
+          <div className="banner banner-bad" role="status"><span><strong>Stopped.</strong> {kill.reason} Set by {kill.by} on {new Date(kill.since as string).toLocaleString("en-IN")}.</span></div>
+        ) : null}
+        {kill.active && can(role, "clearKill") ? <ClearKillForm /> : null}
+        {kill.active && !can(role, "clearKill") ? <p className="small muted">Only the sponsor or an admin can clear the kill switch.</p> : null}
+        {active.config.mode === "shadow" ? <p className="small muted">Shadow mode: the quarterly loss, weekly indicator and override tests are not evaluated. Only the rubber-stamp warning runs.</p> : null}
+        <div className="table-wrap">
+          <table className="data" data-testid="kill-criteria">
+            <thead><tr><th>Criterion</th><th>Current value</th><th>Threshold</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+              {killCheck.criteria.map((c) => (
+                <tr key={c.id} data-status={c.status}>
+                  <td><strong>{c.label}</strong></td>
+                  <td className="num">{c.value ?? "n/a"}</td>
+                  <td className="small">{c.threshold}</td>
+                  <td><span className={`chip ${c.status === "kill" ? "chip-stockout" : c.status === "warn" ? "chip-demand" : c.status === "ok" ? "chip-hold" : "chip-plain"}`}>{c.status.replace("_", " ")}</span></td>
+                  <td className="small muted">{c.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {history.length > 0 ? (
+          <details>
+            <summary>Kill switch history</summary>
+            <ul className="issue-list small">
+              {history.map((e) => <li key={e.id}>{new Date(e.at).toLocaleString("en-IN")}: {e.kind === "clear" ? "cleared" : "tripped"} by {e.setByLabel}. {e.kind === "clear" ? `Note: ${e.note ?? ""}` : e.reason}</li>)}
+            </ul>
+          </details>
+        ) : null}
+      </section>
+
+      <section className="card section" aria-labelledby="golive-h" data-testid="golive-section">
+        <h2 id="golive-h">Go-live checklist</h2>
+        <p className="muted small">Mode changes to live only when every item is ticked by a named user and the sponsor saves the change on Settings. {readiness.ready ? "All items are ticked." : `${readiness.missing.length} still open.`}</p>
+        <GoLiveChecklist readiness={readiness} role={role} canTick={can(role, "goLive")} />
+      </section>
 
       <section className="grid grid-4" aria-label="Key figures">
         <div className="card stat"><span className="stat-label">Runs (last 40)</span><span className="stat-value"><CountUp value={h.totals.runs} /></span><span className="muted small">{h.totals.lines} lines reviewed</span></div>

@@ -21,7 +21,7 @@ export const roleEnum = pgEnum("user_role", ["planner", "sponsor", "data", "admi
 export const perishabilityEnum = pgEnum("perishability", ["low", "high"]);
 export const actionEnum = pgEnum("action", ["REORDER_NOW", "REORDER_1_5X", "PAUSE", "HOLD"]);
 export const triggerEnum = pgEnum("run_trigger", ["cron", "manual", "backtest"]);
-export const runStatusEnum = pgEnum("run_status", ["running", "completed", "completed_degraded", "failed"]);
+export const runStatusEnum = pgEnum("run_status", ["running", "completed", "completed_degraded", "failed", "skipped_killed"]);
 export const llmStatusEnum = pgEnum("llm_status", ["ok", "partial", "failed", "skipped"]);
 export const explanationSourceEnum = pgEnum("explanation_source", ["llm", "template"]);
 export const decisionStatusEnum = pgEnum("decision_status", ["pending", "approved", "edited", "rejected"]);
@@ -178,6 +178,8 @@ export const recommendations = pgTable(
     decidedAt: ts("decided_at"),
     decidedNote: text("decided_note"),
     decidedBy: uuid("decided_by"),
+    /** Set when the row has been in view for a second; with decided_at it gives decision time. */
+    firstViewedAt: ts("first_viewed_at"),
   },
   (t) => [
     index("recommendations_run_idx").on(t.runId),
@@ -267,4 +269,91 @@ export const ingestReports = pgTable(
     userId: uuid("user_id"),
   },
   (t) => [index("ingest_reports_kind_at_idx").on(t.kind, t.at)],
+);
+
+/** Append-only history of the kill switch. The newest row says whether it is on. */
+export const killState = pgTable(
+  "kill_state",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: ts("at").notNull().defaultNow(),
+    active: boolean("active").notNull(),
+    kind: text("kind").notNull(), // trip_auto | trip_manual | clear
+    reason: text("reason").notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    setBy: uuid("set_by"),
+    setByLabel: text("set_by_label").notNull(),
+    note: text("note"),
+  },
+  (t) => [index("kill_state_at_idx").on(t.at)],
+);
+
+/** One row per kill evaluation, so "two consecutive checks" can be counted. */
+export const killChecks = pgTable(
+  "kill_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: ts("at").notNull().defaultNow(),
+    trigger: text("trigger").notNull(), // run | monthly | manual
+    runId: uuid("run_id"),
+    latestWeek: text("latest_week"),
+    levels: jsonb("levels").$type<Record<string, string>>().notNull().default({}),
+    result: jsonb("result").$type<Record<string, unknown>>().notNull(),
+  },
+  (t) => [index("kill_checks_at_idx").on(t.at)],
+);
+
+/** Priya's existing weekly report: both metrics are already in it. */
+export const outcomesWeekly = pgTable("outcomes_weekly", {
+  week: text("week").primaryKey(),
+  stockoutIncidents: integer("stockout_incidents").notNull(),
+  overstockValueInr: integer("overstock_value_inr").notNull(),
+  source: text("source").notNull(),
+  enteredBy: uuid("entered_by"),
+  enteredAt: ts("entered_at").notNull().defaultNow(),
+});
+
+export const outcomesMonthly = pgTable("outcomes_monthly", {
+  period: text("period").primaryKey(), // YYYY-MM
+  stockoutLossInr: integer("stockout_loss_inr").notNull(),
+  writeoffInr: integer("writeoff_inr").notNull(),
+  methodNote: text("method_note").notNull(),
+  enteredBy: uuid("entered_by"),
+  enteredAt: ts("entered_at").notNull().defaultNow(),
+});
+
+/** The 8 weeks before go-live, copied here and never edited again once frozen. */
+export const baselineWeekly = pgTable("baseline_weekly", {
+  week: text("week").primaryKey(),
+  stockoutIncidents: integer("stockout_incidents").notNull(),
+  overstockValueInr: integer("overstock_value_inr").notNull(),
+  frozenAt: ts("frozen_at").notNull().defaultNow(),
+  frozenBy: uuid("frozen_by"),
+});
+
+export const appState = pgTable("app_state", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+export const goLiveItems = pgTable("go_live_items", {
+  itemKey: text("item_key").primaryKey(),
+  tickedBy: uuid("ticked_by").notNull(),
+  tickedAt: ts("ticked_at").notNull().defaultNow(),
+  note: text("note"),
+});
+
+export const exportLog = pgTable(
+  "export_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: ts("at").notNull().defaultNow(),
+    runId: uuid("run_id").notNull(),
+    userId: uuid("user_id"),
+    lineCount: integer("line_count").notNull(),
+    totalQty: integer("total_qty").notNull(),
+    kind: text("kind").notNull(), // preview | download
+  },
+  (t) => [index("export_log_at_idx").on(t.at)],
 );

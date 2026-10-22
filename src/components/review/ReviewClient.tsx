@@ -18,6 +18,11 @@ import { useRunEvents } from "./useRunEvents";
 interface Props {
   data: ReviewData | null;
   today: string;
+  mode: "shadow" | "live";
+  killed: boolean;
+  canDecide: boolean;
+  canExport: boolean;
+  canRun: boolean;
 }
 
 type Tab = "lines" | "exceptions";
@@ -40,7 +45,8 @@ function keepRowVisible(el: HTMLElement, index: number): void {
   else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight) el.scrollTop = top + ROW_HEIGHT - el.clientHeight;
 }
 
-export function ReviewClient({ data, today }: Props) {
+export function ReviewClient({ data, today, mode, killed, canDecide, canExport, canRun }: Props) {
+  const locked = killed || !canDecide;
   const router = useRouter();
   const [rows, setRows] = useState<ReviewRow[]>(data?.rows ?? []);
   const [exceptions, setExceptions] = useState<ReviewException[]>(data?.exceptions ?? []);
@@ -283,6 +289,7 @@ export function ReviewClient({ data, today }: Props) {
       const key = e.key.toLowerCase();
       if (key === "j") move(1);
       else if (key === "k") move(-1);
+      else if (locked) return;
       else if (key === "a" && selectedRow && selectedRow.status === "pending") void approve(selectedRow);
       else if (key === "e" && selectedRow && selectedRow.status === "pending") setPanel({ id: selectedRow.id, mode: "edit" });
       else if (key === "r" && selectedRow && selectedRow.status === "pending") setPanel({ id: selectedRow.id, mode: "reject" });
@@ -293,7 +300,7 @@ export function ReviewClient({ data, today }: Props) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [move, selectedRow, selectedException, approve, undo]);
+  }, [move, selectedRow, selectedException, approve, undo, locked]);
 
   // ---- derived display state
   const live = liveRunId !== null;
@@ -315,6 +322,7 @@ export function ReviewClient({ data, today }: Props) {
     runId: run?.id ?? "",
     selected: selectedId === row.id,
     virtual,
+    locked,
     scroller,
     panel: panel?.id === row.id ? panel.mode : null,
     busy: busyId === row.id,
@@ -335,7 +343,7 @@ export function ReviewClient({ data, today }: Props) {
     <>
       <div className="page-head">
         <div>
-          <h1>Review</h1>
+          <h1>Review {mode === "shadow" ? <span className="chip chip-demand shadow-title">SHADOW</span> : null}</h1>
           {run ? (
             <p>
               Run for <strong className="num">{run.asOf}</strong> · rules v{run.configVersion ?? "?"} · festival uplift mode <code>{run.festivalMode ?? "cover_demand"}</code> · {run.trigger === "cron" ? "scheduled" : "started manually"}
@@ -355,7 +363,7 @@ export function ReviewClient({ data, today }: Props) {
             <span className="small muted">Run date</span>
             <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} required aria-label="Run date" />
           </label>
-          <button type="submit" className="btn btn-primary" disabled={starting || live} data-testid="run-now">
+          <button type="submit" className="btn btn-primary" disabled={starting || live || !canRun || killed} data-testid="run-now" title={killed ? "The kill switch is on" : undefined}>
             {live ? <><span className="spinner" aria-hidden="true" /> Running…</> : "Run now"}
           </button>
         </form>
@@ -363,6 +371,8 @@ export function ReviewClient({ data, today }: Props) {
 
       <div className="sr-only" role="status" aria-live="polite" data-testid="live-region">{announce}</div>
 
+      {locked && !killed ? <div className="banner banner-info" role="note"><span>You have read-only access to Review. Only a planner or admin can approve, edit or reject lines.</span></div> : null}
+      {mode === "shadow" ? <div className="banner banner-warn" role="note" data-testid="shadow-banner"><span><strong>Shadow mode.</strong> Runs, sheets and reviews work and your overrides are logged, but the purchase-order export is blocked until go-live.</span></div> : null}
       {message ? <div className="banner banner-info" role="status"><span>{message}</span></div> : null}
       {run?.status === "failed" ? <div className="banner banner-bad" role="alert"><span><strong>This run failed.</strong> {run.notes.at(-1) ?? "See the runbook in the README."}</span></div> : null}
       {run?.status === "completed_degraded" ? (
@@ -485,6 +495,7 @@ export function ReviewClient({ data, today }: Props) {
                       selected={selectedId === item.id}
                       panelOpen={panel?.id === item.id}
                       busy={busyId === item.id}
+                      locked={locked}
                       error={panel?.id === item.id ? panelError : null}
                       onSelect={setSelectedId}
                       onOpenPanel={(id) => { setPanelError(null); setPanel({ id, mode: "handle" }); setSelectedId(id); }}
@@ -504,8 +515,14 @@ export function ReviewClient({ data, today }: Props) {
             <span className="num" data-testid="decided-count"><strong>{decided}</strong> of <strong>{rows.length}</strong> decided</span>
             <span className="small muted num">{countBy("approved")} approved · {countBy("edited")} edited · {countBy("rejected")} rejected{exceptions.length > 0 ? ` · ${openExceptions} exceptions open` : ""}</span>
             <span className="shell-spacer" />
-            {exportable > 0 ? (
-              <a className="btn btn-primary" href={`/api/export/approved?run=${run.id}`} download data-testid="export-link">Export approved ({exportable})</a>
+            {mode === "shadow" ? (
+              <button type="button" className="btn btn-primary" disabled data-testid="export-link" title="Shadow mode: runs and reviews work, but nothing goes to procurement">Export blocked: shadow mode</button>
+            ) : killed ? (
+              <button type="button" className="btn btn-primary" disabled data-testid="export-link">Export stopped: kill switch</button>
+            ) : !canExport ? (
+              <button type="button" className="btn btn-primary" disabled data-testid="export-link" title="Only a planner or admin can export">Export (planner only)</button>
+            ) : exportable > 0 ? (
+              <a className="btn btn-primary" href={`/export?run=${run.id}`} data-testid="export-link">Export approved ({exportable})</a>
             ) : (
               <button type="button" className="btn btn-primary" disabled data-testid="export-link" title="Approve or edit a line with a quantity first">Export approved (0)</button>
             )}

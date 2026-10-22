@@ -15,6 +15,7 @@ interface Props {
   runId: string;
   selected: boolean;
   virtual: boolean;
+  locked: boolean;
   scroller: HTMLElement | null;
   panel: PanelMode | null;
   busy: boolean;
@@ -126,7 +127,7 @@ function RecRowImpl(props: Props) {
         </span>
         {row.decidedNote ? <span className="note" title={row.decidedNote}>{row.decidedNote}</span> : null}
         <div className="row-actions">
-          {decided ? (
+          {props.locked ? null : decided ? (
             <button type="button" className="btn btn-sm" onClick={() => props.onUndo(row)} disabled={busy}>Undo</button>
           ) : (
             <>

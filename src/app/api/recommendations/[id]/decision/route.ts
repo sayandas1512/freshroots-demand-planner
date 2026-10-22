@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
+import { lockedByKill } from "@/kill/guards";
 import { NotFoundError, applyDecision, decisionSchema } from "@/run/decisions";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const actor = await requirePermission(request, "decide");
   if (isResponse(actor)) return actor;
+  const locked = await lockedByKill(await getDb());
+  if (locked) return locked;
   const { id } = await ctx.params;
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = decisionSchema.safeParse(await request.json().catch(() => null));

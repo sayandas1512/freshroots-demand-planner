@@ -1,7 +1,7 @@
 import type { Action, ExceptionType, Flag, LineMetrics } from "@/engine/types";
 
 /** Serializable shapes passed from server components to the Review client. */
-export type RunStatus = "running" | "completed" | "completed_degraded" | "failed";
+export type RunStatus = "running" | "completed" | "completed_degraded" | "failed" | "skipped_killed";
 export type DecisionStatus = "pending" | "approved" | "edited" | "rejected";
 export type StepState = "pending" | "running" | "done" | "degraded" | "failed" | "skipped";
 

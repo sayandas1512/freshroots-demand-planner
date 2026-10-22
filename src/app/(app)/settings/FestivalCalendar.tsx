@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function FestivalCalendar({ months }: { months: { yearMonth: string; isFestival: boolean }[] }) {
+export function FestivalCalendar({ months, canEdit }: { months: { yearMonth: string; isFestival: boolean }[]; canEdit: boolean }) {
   const router = useRouter();
   const initial = useMemo(() => new Map(months.map((m) => [m.yearMonth, m.isFestival])), [months]);
   const [flags, setFlags] = useState<Map<string, boolean>>(initial);
@@ -55,7 +55,7 @@ export function FestivalCalendar({ months }: { months: { yearMonth: string; isFe
           <p className="muted small">Months marked as festival months get the demand uplift. Brief default: March, October and November. Changes apply to future runs, not to runs already saved.</p>
         </div>
         <div className="calendar-actions">
-          <button type="button" className="btn btn-sm" onClick={addYear}>Add {Number(years.at(-1) ?? new Date().getFullYear()) + 1}</button>
+          <button type="button" className="btn btn-sm" onClick={addYear} disabled={!canEdit}>Add {Number(years.at(-1) ?? new Date().getFullYear()) + 1}</button>
           <button type="button" className="btn btn-sm btn-primary" disabled={busy || dirty.length === 0} onClick={save} data-testid="save-calendar">{busy ? "Saving…" : `Save calendar${dirty.length ? ` (${dirty.length})` : ""}`}</button>
         </div>
       </div>
@@ -67,7 +67,7 @@ export function FestivalCalendar({ months }: { months: { yearMonth: string; isFe
               const key = `${y}-${String(i + 1).padStart(2, "0")}`;
               const on = flags.get(key) ?? false;
               return (
-                <button key={key} type="button" className="cal-month" aria-pressed={on} onClick={() => toggle(key)} data-testid={`cal-${key}`}>
+                <button key={key} type="button" className="cal-month" aria-pressed={on} disabled={!canEdit} onClick={() => toggle(key)} data-testid={`cal-${key}`}>
                   {on ? "★ " : ""}{name}
                 </button>
               );

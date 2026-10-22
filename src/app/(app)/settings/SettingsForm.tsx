@@ -18,14 +18,17 @@ type NumericKey = {
   [K in keyof RuleConfig]: RuleConfig[K] extends number ? K : never;
 }[keyof RuleConfig];
 
+type Perm = "rules" | "kill";
+
 interface FieldDef {
   key: NumericKey;
+  perm?: Perm;
   label: string;
   help: string;
   step: number;
 }
 
-const GROUPS: { title: string; fields: FieldDef[] }[] = [
+const GROUPS: { title: string; note?: string; fields: FieldDef[] }[] = [
   {
     title: "Windows",
     fields: [
@@ -57,6 +60,24 @@ const GROUPS: { title: string; fields: FieldDef[] }[] = [
       { key: "anomaly_lookback_weeks", label: "Anomaly look-back (weeks)", help: "How many weeks before the latest one form the comparison mean.", step: 1 },
     ],
   },
+  {
+    title: "Kill and warning thresholds",
+    note: "Starting proposals. The sponsor must confirm them before go-live. Only the sponsor or an admin can change them.",
+    fields: [
+      { key: "indicator_kill_pct", perm: "kill", label: "Weekly indicators: kill when more than this % worse", help: "4-week average of stockout incidents, or of overstock value, against the frozen 8-week baseline.", step: 1 },
+      { key: "indicator_warn_pct", perm: "kill", label: "Weekly indicators: warn at this % worse", help: "A warning only.", step: 1 },
+      { key: "indicator_consecutive_checks", perm: "kill", label: "Consecutive checks needed to kill", help: "Checks on different outcome weeks.", step: 1 },
+      { key: "override_kill_rate", perm: "kill", label: "Override kill rate", help: "(edited + rejected) / decided lines. 0.5 = 50%. Exceptions are not counted. Not evaluated in shadow mode.", step: 0.05 },
+      { key: "override_kill_runs", perm: "kill", label: "Consecutive runs above that rate", help: "Completed live runs.", step: 1 },
+      { key: "rubber_override_rate", perm: "kill", label: "Rubber-stamp warning: override rate below", help: "0.02 = 2%. A warning, never a kill.", step: 0.01 },
+      { key: "rubber_median_seconds", perm: "kill", label: "Rubber-stamp warning: median seconds per decision below", help: "Both conditions must hold on every run in the window.", step: 1 },
+      { key: "rubber_runs", perm: "kill", label: "Rubber-stamp warning: consecutive runs", help: "Completed runs.", step: 1 },
+    ],
+  },
+  {
+    title: "Optional data (off by default)",
+    fields: [{ key: "distributor_shift_pct", label: "Distributor shift threshold (%)", help: "Used only when distributor-shift exceptions are switched on below.", step: 1 }],
+  },
 ];
 
 const MODE_COPY: Record<FestivalUpliftMode, { title: string; body: string }> = {
@@ -74,9 +95,15 @@ const MODE_COPY: Record<FestivalUpliftMode, { title: string; body: string }> = {
   },
 };
 
-const fmt = (v: unknown): string => (typeof v === "boolean" ? (v ? "yes" : "no") : String(v));
+const fmt = (v: unknown): string => (typeof v === "boolean" ? (v ? "yes" : "no") : Array.isArray(v) ? v.join(", ") : String(v));
 
-export function SettingsForm({ active, history }: { active: { version: number; config: RuleConfig }; history: HistoryItem[] }) {
+const TOGGLES: { key: "enable_distributor_exceptions" | "enable_lead_time_flag" | "enable_moq_flag"; label: string; help: string }[] = [
+  { key: "enable_distributor_exceptions", label: "Distributor-shift exceptions", help: "Flags an SKU to Raghav when a distributor's share of its volume over the last 4 weeks is well below its 12-week share. Needs the optional Distributor_ID column on sales. Never produces a recommendation." },
+  { key: "enable_lead_time_flag", label: "Lead-time breach flag", help: "Informational flag when cover is shorter than the SKU's lead time. Needs lead_time_weeks on the SKU master." },
+  { key: "enable_moq_flag", label: "Minimum order quantity flag", help: "Informational flag when the recommended quantity is below the SKU's MOQ. Needs moq on the SKU master." },
+];
+
+export function SettingsForm({ active, history, perms }: { active: { version: number; config: RuleConfig }; history: HistoryItem[]; perms: { editRules: boolean; editKill: boolean; setMode: boolean } }) {
   const router = useRouter();
   const [draft, setDraft] = useState<RuleConfig>(active.config);
   const [note, setNote] = useState("");
@@ -134,14 +161,31 @@ export function SettingsForm({ active, history }: { active: { version: number; c
   return (
     <div className="settings-layout">
       <div className="settings-fields">
+        <fieldset className="card fieldset" disabled={!perms.setMode} data-testid="mode-group">
+          <legend><h2>Operating mode</h2></legend>
+          <div className="mode-list" role="radiogroup" aria-label="Operating mode">
+            {(["shadow", "live"] as const).map((m) => (
+              <label key={m} className="mode" data-selected={draft.mode === m}>
+                <input type="radio" name="op-mode" value={m} checked={draft.mode === m} onChange={() => { setPreview(null); setDraft((d) => ({ ...d, mode: m })); }} data-testid={`op-mode-${m}`} />
+                <span>
+                  <strong>{m === "shadow" ? "Shadow" : "Live"}</strong>
+                  <span className="hint block">{m === "shadow" ? "Runs, sheets, reviews and overrides all work. The purchase-order export is blocked. Used for the first weeks to compare with Raghav's own forecast." : "The export works. Switching to live needs the go-live checklist on the Health page to be complete, and freezes the weekly baseline."}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {!perms.setMode ? <p className="small muted">Only the sponsor or an admin can change the mode.</p> : null}
+        </fieldset>
+
         {GROUPS.map((g) => (
           <fieldset key={g.title} className="card fieldset">
             <legend><h2>{g.title}</h2></legend>
+            {g.note ? <p className="small muted">{g.note}</p> : null}
             <div className="fields-grid">
               {g.fields.map((f) => (
                 <label key={f.key} className="field">
                   {f.label}
-                  <input type="number" step={f.step} value={draft[f.key]} onChange={(e) => setNumber(f.key, e.target.value)} data-testid={`cfg-${f.key}`} />
+                  <input type="number" step={f.step} value={draft[f.key]} disabled={f.perm === "kill" ? !perms.editKill : !perms.editRules} onChange={(e) => setNumber(f.key, e.target.value)} data-testid={`cfg-${f.key}`} />
                   <span className="hint">{f.help}</span>
                 </label>
               ))}
@@ -153,7 +197,7 @@ export function SettingsForm({ active, history }: { active: { version: number; c
           <legend><h2>Rule 4: festival months</h2></legend>
           <label className="field narrow">
             Demand uplift in festival months
-            <input type="number" step={0.01} value={draft.festival_uplift} onChange={(e) => setNumber("festival_uplift", e.target.value)} data-testid="cfg-festival_uplift" />
+            <input type="number" step={0.01} disabled={!perms.editRules} value={draft.festival_uplift} onChange={(e) => setNumber("festival_uplift", e.target.value)} data-testid="cfg-festival_uplift" />
             <span className="hint">0.25 = 25%. Which months count is set in the calendar below, using the month of the run date.</span>
           </label>
           <div className="banner banner-warn" role="note">
@@ -162,7 +206,7 @@ export function SettingsForm({ active, history }: { active: { version: number; c
           <div className="mode-list" role="radiogroup" aria-label="Festival uplift mode">
             {FESTIVAL_UPLIFT_MODES.map((m) => (
               <label key={m} className="mode" data-selected={draft.festival_uplift_mode === m}>
-                <input type="radio" name="mode" value={m} checked={draft.festival_uplift_mode === m} onChange={() => { setPreview(null); setDraft((d) => ({ ...d, festival_uplift_mode: m })); }} data-testid={`mode-${m}`} />
+                <input type="radio" name="mode" value={m} disabled={!perms.editRules} checked={draft.festival_uplift_mode === m} onChange={() => { setPreview(null); setDraft((d) => ({ ...d, festival_uplift_mode: m })); }} data-testid={`mode-${m}`} />
                 <span>
                   <strong>{MODE_COPY[m].title}</strong> <code>{m}</code>
                   <span className="hint block">{MODE_COPY[m].body}</span>
@@ -172,10 +216,30 @@ export function SettingsForm({ active, history }: { active: { version: number; c
           </div>
         </fieldset>
 
+        <fieldset className="card fieldset" disabled={!perms.editRules}>
+          <legend><h2>Optional features and export</h2></legend>
+          {TOGGLES.map((t) => (
+            <label key={t.key} className="check">
+              <input type="checkbox" checked={draft[t.key]} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, [t.key]: e.target.checked })); }} data-testid={`cfg-${t.key}`} />
+              <span><strong>{t.label}</strong><span className="hint block">{t.help}</span></span>
+            </label>
+          ))}
+          <label className="field">
+            Expected distributor regions
+            <input type="text" value={draft.expected_regions.join(", ")} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, expected_regions: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })); }} data-testid="cfg-expected_regions" />
+            <span className="hint">Comma-separated. A distributor outside these regions gets a warning on upload (not an error).</span>
+          </label>
+          <label className="field">
+            Export label for the distributor column
+            <input type="text" value={draft.export_id_label} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, export_id_label: e.target.value })); }} data-testid="cfg-export_id_label" />
+            <span className="hint">It is not confirmed whether the SKU master&apos;s Distributor_ID is the supplier we order from or the selling distributor.</span>
+          </label>
+        </fieldset>
+
         <fieldset className="card fieldset">
           <legend><h2>Open purchase orders</h2></legend>
           <label className="check">
-            <input type="checkbox" checked={draft.include_open_po_in_stock} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, include_open_po_in_stock: e.target.checked })); }} data-testid="cfg-include_open_po_in_stock" />
+            <input type="checkbox" disabled={!perms.editRules} checked={draft.include_open_po_in_stock} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, include_open_po_in_stock: e.target.checked })); }} data-testid="cfg-include_open_po_in_stock" />
             <span><strong>Count open POs as stock</strong><span className="hint block">Off by default. Open PO quantity is always shown next to stock either way.</span></span>
           </label>
         </fieldset>
