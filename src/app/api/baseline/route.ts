@@ -19,7 +19,6 @@ const body = z.object({
 export async function POST(request: Request) {
   const actor = await requirePermission(request, "outcomes");
   if (isResponse(actor)) return actor;
-  void actor;
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid entry" }, { status: 400 });
   const v = parsed.data;

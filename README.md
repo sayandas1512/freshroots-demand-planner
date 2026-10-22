@@ -10,35 +10,63 @@ Runs Raghav Kulkarni's documented reorder rules twice a week (Monday and Thursda
 - Every edit and rejection needs a reason and is stored in the override log.
 - One bad file, SKU or LLM call never stops a run. The recommendation sheet is saved before it is shown or exported.
 
-Stack: Next.js 16 (App Router) and TypeScript on Vercel, Postgres on Neon with Drizzle, Zod, Vitest, Playwright, GSAP.
+Stack: Next.js 16 (App Router) and TypeScript on Vercel, Postgres on Neon with Drizzle, Zod, Vitest, Playwright, GSAP, Gemini Flash (Anthropic behind the same interface), Resend for alerts, GitHub Actions for CI.
 
-## Where each folder sits on the component map
+## Where each folder sits on the 18-step component map
 
-| Map step | Box | Code |
+Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, Platform.
+
+| Step | Box | Code |
 |---|---|---|
-| 01 | Raghav / Input: Settings page edits the rule config | `src/app/(app)/settings`, `src/run/config-store.ts`, `src/engine/config.ts` |
-| 02 | Timer / Trigger: cron Mon and Thu 07:00 IST, plus "Run now" | `vercel.json`, `src/app/api/cron/run`, `src/app/api/run` |
-| 03 | Data / Context: CSV drops, rule config, SKU master, festival calendar, history | `src/ingest` (the file-to-column mapping is in `src/ingest/mapping.ts`), `src/db`, `src/app/(app)/data`, `fixtures/` |
-| 04 | Engine / Processing: validate, join, apply rules in order, route exceptions | `src/engine` (pure TypeScript), `src/run/load.ts`, `src/run/execute.ts` |
-| 05 | Engine / AI: reasons for flags, run headline | `src/ai` (one provider interface, prompts, templates, guardrails) |
-| 06 | Engine / Output: draft recommendation sheet, saved before it is shown | `src/run/execute.ts` (single transaction), `recommendations` table |
+| 01 | Raghav / Input: Settings page, rule thresholds and **shadow or live mode** | `src/app/(app)/settings`, `src/run/config-store.ts`, `src/run/mode.ts`, `src/engine/config.ts`, `src/auth/config-auth.ts` |
+| 02 | Timer and kill / Trigger: cron Mon and Thu 07:00 IST, Run-now, **kill switch checked first** | `vercel.json`, `src/app/api/cron/run`, `src/app/api/run`, `src/run/execute.ts` (`startRun` refuses while killed) |
+| 03 | Data / Context: SAP and Zoho CSV drops (Priya), rule settings, history | `src/ingest` (column names in `src/ingest/mapping.ts`), `src/db`, `src/app/(app)/data`, `fixtures/`, `src/synthetic` |
+| 04 | Engine / Processing: clean, apply Raghav's rules, flag stockout and overstock, route exceptions | `src/engine` (pure TypeScript), `src/run/load.ts`, `src/run/machine.ts` (`prepare`) |
+| 05 | Engine / AI: reasons per flag and the run headline | `src/ai` (one provider interface: Gemini Flash, Anthropic; prompts, templates, guardrails, allow-list `payload.ts`) |
+| 06 | Engine / Output: draft sheet, saved before it is shown | `src/run/machine.ts` (one transaction in `prepare`), `recommendations` table |
 | 07 | Raghav / Output: approve, edit or reject each line | `src/app/(app)/page.tsx`, `src/components/review`, `src/run/decisions.ts` |
-| 08 | Procurement / Output: approved lines as a PO CSV | `src/export` (column mapping in `src/export/mapping.ts`), `src/app/api/export/approved` |
-| 09 | Deepa / Output: health, override log, baseline | `src/app/(app)/health`, `src/run/health.ts`, `src/components/health` |
-| 10 | Deepa / Processing: backtest before launch | `src/backtest`, `src/app/(app)/backtest`, `scripts/backtest.ts` |
+| 08 | Procurement / Output: export of approved lines, **blocked in shadow mode or when killed** | `src/export`, `src/app/(app)/export` (preview), `src/app/api/export/approved`, `src/kill/guards.ts` |
+| 09 | Deepa / Output: Health page, override log, losses vs baseline, kill status, rubber-stamp warning, go-live checklist | `src/app/(app)/health`, `src/run/health.ts`, `src/golive`, `src/components/health` |
+| 10 | Before launch / Processing: backtest on SAP history against Raghav's past orders, festival uplift check | `src/backtest`, `src/run/history.ts`, `src/app/(app)/backtest`, `scripts/backtest.ts` |
+| 11 | Deepa / Context: outcome log (weekly incidents and overstock value, monthly ₹ loss, frozen baseline) | `src/outcomes`, `src/app/(app)/outcomes`, tables `outcomes_weekly`, `outcomes_monthly`, `baseline_weekly` |
+| 12 | Deepa / Processing: kill check after each run and monthly | `src/kill/check.ts` (pure `executeKillCheck`), `src/kill/gather.ts`, `src/kill/run.ts`, `/api/cron/kill-check` |
+| 13 | Timer and kill / Input: kill switch, stops the timer and the export, emails Deepa | `src/kill/state.ts`, `src/app/api/kill`, `src/components/StopControl.tsx`, `src/lib/email.ts` |
+| 14 | Platform: GitHub | `.github/workflows/ci.yml` |
+| 15 | Platform: Vercel | `vercel.json`, `next.config.ts`, `/api/run/[id]/advance`, `/api/cron/resume` |
+| 16 | Platform: Neon | `src/db`, `drizzle/`, `scripts/migrate.ts` |
+| 17 | Platform: Gemini Flash | `src/ai/gemini.ts` (Anthropic in `src/ai/anthropic.ts` behind the same interface) |
+| 18 | Before launch / Output: **shadow mode**, runs and reviews without export, compared with Raghav's own forecast | `mode` in config, `src/shadow`, `src/app/(app)/shadow`, `src/app/api/shadow` |
 
-Supporting: `src/auth` and `src/proxy.ts` (shared-password session, cron secret), `src/lib` (rate limit, dates, motion tokens), `tests/` (Vitest), `e2e/` (Playwright), `drizzle/` (migrations).
+Supporting: `src/auth` and `src/proxy.ts` (named users, roles, signed session, cron secret), `src/lib` (rate limit, dates, motion tokens, JSON logs, email), `docs/RUNBOOK.md`, `docs/GAP_REPORT.md`, `tests/` (Vitest), `e2e/` (Playwright).
+
+## Who can do what
+
+| Role | Person | Can |
+|---|---|---|
+| planner | Raghav | review, approve, edit, reject, rules settings, run, export, backtest |
+| sponsor | Deepa | operating mode, kill thresholds, clear the kill switch (with a note), outcomes, backtest, run, health |
+| data | Priya | uploads, outcome entry, run |
+| admin | IT | everything |
+
+Everyone signed in can press **Stop**. Every approval, edit, rejection, upload, kill trip, kill clear and export download records the user.
+
+## Shadow, live and the kill switch
+
+The system starts in **shadow mode**: runs, sheets, review and overrides work, the export is blocked (423), and SHADOW shows on every page. The **Shadow** page compares Raghav's own monthly forecast with the system's recommendations. The sponsor moves to **live** on Settings after the go-live checklist on Health is complete (each item ticked by a named user, and 8 weeks of weekly outcomes entered), which freezes the weekly baseline.
+
+The kill check runs after every completed run and on the 1st of each month. Three kill tests and a warning, with current values and thresholds on Health (thresholds on Settings, all starting proposals for the sponsor to confirm): quarterly loss above the baseline high; weekly indicators more than 20% worse than baseline at two consecutive checks; override rate above 50% across four consecutive live runs; and a rubber-stamp warning that never kills. Tests 1 to 3 are not evaluated in shadow mode. When tripped, scheduled runs and the export stop, Review is read-only, a banner shows everywhere, and an email goes out. Raghav's own process is unaffected. See `docs/RUNBOOK.md` section 6.
 
 ## Run it locally
 
 ```bash
 npm install
-cp .env.example .env.local      # set APP_PASSWORD and CRON_SECRET at least
+cp .env.example .env.local      # set SESSION_SECRET, CRON_SECRET and SEED_USERS at least
 npm run seed                     # loads /fixtures through the normal ingestion layer
+npm run seed:users               # creates the named users from SEED_USERS
 npm run dev                      # http://localhost:3000
 ```
 
-With `DATABASE_URL` empty the app uses an embedded Postgres (PGlite) in `.data/`, so no database setup is needed. Sign in with `APP_PASSWORD`, set the run date to `2026-10-19` (the date the sample data is built for) and press **Run now**.
+With `DATABASE_URL` empty the app uses an embedded Postgres (PGlite) in `.data/`, so no database setup is needed. Sign in with a seeded user, set the run date to `2026-10-19` (the date the sample data is built for) and press **Run now**.
 
 From the command line:
 
@@ -47,6 +75,7 @@ npm run run:now -- --as-of=2026-10-19                                   # run th
 npm run backtest -- --from 2026-W39 --to 2026-W42 [--orders orders.csv] # replay past weeks
 npm test                                                                  # unit and integration tests
 npm run test:e2e                                                          # Playwright (builds, seeds, starts a server on :3200)
+npm run gen:synthetic                                                     # 400 SKUs, 156 weeks, 1,200 distributors into fixtures/synthetic
 npm run build                                                             # production build
 ```
 
@@ -55,11 +84,13 @@ npm run build                                                             # prod
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Neon Postgres connection string. Empty means the embedded dev database. |
-| `ANTHROPIC_API_KEY` | Enables LLM wording. Empty means template wording only (`llm_status = skipped`). |
-| `LLM_MODEL` | Model for reasons and headline. Default `claude-haiku-4-5-20251001`. |
+| `SESSION_SECRET` | Keys the signed session cookie (16+ characters). Rotate to sign everyone out. |
+| `SEED_USERS` | JSON array of `{email, name, role, password}`, used by `npm run seed:users`. |
+| `CRON_SECRET` | Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on cron calls. Also used to chain run steps and accepted by API routes for scripts and uptime monitors. |
+| `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | Enable LLM wording. All empty means template wording only (`llm_status = skipped`). |
+| `LLM_PROVIDER`, `LLM_MODEL` | `gemini` or `anthropic` (default: whichever key is set, Gemini first) and the model id (defaults per provider; verify with the provider). |
 | `LLM_PRICE_IN_PER_MTOK`, `LLM_PRICE_OUT_PER_MTOK` | USD per million tokens, used only to log run cost. |
-| `CRON_SECRET` | Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on cron calls. Also accepted by API routes for scripts. |
-| `APP_PASSWORD` | The single shared password. Also keys the signed session cookie. |
+| `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | Optional alert emails (kill switch, failed or degraded runs). Without them alerts are logged only. |
 | `TZ` | `Asia/Kolkata`. |
 | `PGLITE_DIR` | Optional folder for the embedded database (default `.data/pglite`). |
 
@@ -68,10 +99,10 @@ Secrets are read on the server only. Nothing is prefixed `NEXT_PUBLIC_`.
 ## Deploy to Vercel
 
 1. Create a Neon database (Vercel Marketplace, or neon.tech) and copy its connection string.
-2. Import the repo in Vercel and set `DATABASE_URL`, `ANTHROPIC_API_KEY`, `LLM_MODEL`, `CRON_SECRET`, `APP_PASSWORD` and `TZ=Asia/Kolkata` for Production.
+2. Import the repo in Vercel and set `DATABASE_URL`, `SESSION_SECRET`, `CRON_SECRET`, `GEMINI_API_KEY` (or the Anthropic key), `RESEND_API_KEY`, `ALERT_EMAIL` and `TZ=Asia/Kolkata` for Production. Choose the Neon region nearest India (Singapore). IT and the CEO sign off hosting before go-live.
 3. Deploy. The `vercel-build` script applies migrations (`tsx scripts/migrate.ts`) and then builds, so the first deploy creates the schema, the active rule config (v1) and the brief's baseline range.
-4. Load data: either use the **Data** page, or from a laptop run `DATABASE_URL=... npm run seed` to load the sample.
-5. Vercel Cron reads `vercel.json` (`30 1 * * 1,4` = 01:30 UTC = 07:00 IST, Monday and Thursday) and calls `GET /api/cron/run` with the bearer secret. Check the first run on the **Health** page.
+4. Create the users: `DATABASE_URL=... SEED_USERS=... npm run seed:users`. Load data on the **Data** page, or `DATABASE_URL=... npm run seed` for the sample.
+5. Vercel Cron reads `vercel.json`: `30 1 * * 1,4` (07:00 IST Monday and Thursday) runs `/api/cron/run`; `0 2 1 * *` runs the monthly kill check; `*/10 * * * *` runs `/api/cron/resume`, which picks up any run that stopped midway (use a daily schedule on a plan that does not allow it). Check the first run on the **Health** page, which also shows `/api/health`.
 
 To change the schema: edit `src/db/schema.ts`, run `npm run db:generate`, commit the new file in `drizzle/`.
 
@@ -93,28 +124,16 @@ Exceptions routed to Raghav: new SKU, short history, missing stock, zero demand,
 
 ## Runbook
 
-**A run failed.** Health shows it in red with the reason. Check, in order: (1) is `DATABASE_URL` reachable (Neon may be paused: open the Neon console); (2) was a file rejected wholesale, see the **Data** page; (3) the Vercel function logs for the run id. Fix the cause and press **Run now** (a failed run is never returned as the "existing" run, so it retries immediately). A run stuck in `running` for 30 minutes is marked failed automatically the next time anyone starts a run.
-
-**A run is "completed with warnings".** Two causes, both shown in the banner. *Stock data is stale:* load a fresh inventory file, then rerun. *Wording fell back to templates:* the LLM was down, slow or failed validation. Actions, quantities and numbers are unaffected and the sheet is fully usable. If it persists check `ANTHROPIC_API_KEY`, `LLM_MODEL` and the provider's status.
-
-**The cron did not run.** In Vercel check Settings > Cron Jobs, and that `CRON_SECRET` is set. You can trigger it by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/run`.
-
-**Two runs clicked at once.** Safe: a database advisory lock lets only one run at a time, and the same date within 10 minutes returns the existing run.
-
-**A bad rule change.** Settings keeps every version. Reopen the previous values and save them as a new version with a note; each run records the version it used.
-
-**A decision was made by mistake.** Press Undo on the line. The undo is logged.
-
-**Rotate the password.** Change `APP_PASSWORD` and redeploy. All sessions end.
+See [`docs/RUNBOOK.md`](docs/RUNBOOK.md): reading the run strip and log, every failure state, re-running, restoring settings, late SAP files, the kill switch and its drill, going live, users and secrets, hosting.
 
 ## Security notes
 
-- Single shared password, constant-time comparison, signed `httpOnly` `SameSite=Lax` cookie (`Secure` in production). The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
+- Named users with scrypt-hashed passwords, signed `httpOnly` `SameSite=Lax` session cookie (`Secure` in production), role checks on every mutating route. The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
 - All external input is validated with Zod: every CSV row, every request body, every route parameter (UUIDs), and the `next` redirect on login.
 - CSV content is untrusted: size, row and field limits; formula characters rejected in identifiers; every CSV we write neutralises cells starting with `=`, `+`, `-` or `@`. CSV text is only ever rendered by React (escaped).
-- No API key or full prompt is logged. The LLM receives computed facts only, never raw tables.
-- Rate limits on login, upload, run and backtest routes (per instance; see `ASSUMPTIONS.md` 35). Security headers are set in `next.config.ts`.
+- No API key or full prompt is logged (JSON logs redact secret-like fields). The LLM receives only an allow-listed payload of computed numbers, SKU names and categories: never user notes, distributor names or raw tables (`src/ai/payload.ts`, tested).
+- Rate limits on login (per address and per account), upload, run and backtest routes (per instance; see `ASSUMPTIONS.md` 35). Security headers are set in `next.config.ts`.
 
 ## Deferred
 
-SAP automated export, Zoho API integration (the PO export is a CSV for now), email alerts (the hook is `src/run/alerts.ts`), and the Distributor Service and Ops Intelligence modules.
+SAP automated export, Zoho API integration (the PO export is a CSV for now), and the Distributor Service and Ops Intelligence modules. Alert email is built (Resend) but untested against the live service.

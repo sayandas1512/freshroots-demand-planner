@@ -15,7 +15,6 @@ const body = z.object({
 export async function POST(request: Request) {
   const actor = await requirePermission(request, "editRules");
   if (isResponse(actor)) return actor;
-  void actor;
   const parsed = body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Send a list of { yearMonth: 'YYYY-MM', isFestival } entries." }, { status: 400 });
   const db = await getDb();

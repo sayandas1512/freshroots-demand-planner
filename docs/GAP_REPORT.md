@@ -57,3 +57,31 @@ Each group ends green on `npm run lint`, `npm run typecheck`, `npm test`, then a
 ## Items that will be blocked on a human regardless of code
 
 Kill thresholds and loss method (sponsor), festival uplift scope (Raghav), SAP export date and hosting sign-off (IT, CEO), whether `Distributor_ID` is the supplier or the selling distributor, procurement agreement to act on approved lines, and a Gemini API key and Resend key for live testing.
+
+---
+
+## Status after applying the plan
+
+All items are closed in code with tests, except where a human decision or a live credential is needed. Commits are one per group (see `git log`).
+
+| ID | Result | Where | Left open |
+|---|---|---|---|
+| Gemini behind the interface | Done, mocked-API tests only | `src/ai/gemini.ts`, `src/ai/index.ts` | Real `GEMINI_API_KEY` and a verified model id |
+| Resend alerts | Done, mocked-API tests only | `src/lib/email.ts`, `src/run/alerts.ts`, `src/kill/state.ts` | Real `RESEND_API_KEY` and a verified sender |
+| GitHub Actions | Done | `.github/workflows/ci.yml` | First run on GitHub |
+| CH-01 users and roles | Done | `src/auth`, `users` table, `npm run seed:users`, role guards on every mutating route | Real users and passwords |
+| CH-02 shadow and live | Done | `mode` in config, `src/run/mode.ts`, export guard, `src/shadow`, `/shadow` | |
+| CH-03 kill criteria | Done, exhaustive tests | `src/kill/check.ts`, `kill_state`, `kill_checks`, Health, Settings | Sponsor confirms thresholds |
+| CH-04 outcome log | Done | `outcomes_weekly`, `outcomes_monthly`, `baseline_weekly`, `/outcomes` | Sponsor and finance confirm the loss method |
+| CH-05 decision timing | Done | `first_viewed_at`, `/api/recommendations/viewed`, Health | |
+| CH-06 distributor data | Done, off by default | `weekly_sales_by_distributor`, `src/engine/distributors.ts` | Real distributor-level extract |
+| CH-07 scale and resume | Done | `src/run/machine.ts`, `src/synthetic`, `tests/machine.test.ts` (400 SKUs, 156 weeks, 1,200 distributors, forced crash and resume) | Re-test on Neon at real size |
+| CH-08 backtest and uplift check | Done | `src/run/history.ts`, `src/backtest/festival.ts` | Real 3-year history |
+| CH-09 lead time and MOQ | Done, off by default | SKU master optional columns, `infoFlags` | |
+| CH-10 export realism | Done | `export_id_label`, `/export` preview, `export_log` | Confirm the meaning of `Distributor_ID` and the Zoho template |
+| CH-11 operability | Done | `docs/RUNBOOK.md`, `/api/health`, `src/lib/log.ts` | |
+| CH-12 data handling | Done | `src/ai/payload.ts` allow-list with tests | IT and CEO hosting sign-off; Neon region chosen when the project is created |
+| CH-13 region warning | Done | ingestion warning, `expected_regions` | |
+| CH-14 map and docs | Done | README (18 steps), `ASSUMPTIONS.md` rows 43 to 67 | |
+
+Deliberately not changed: the five rules, their precedence, the golden table, the template fallbacks, the draft-sheet-before-display rule, the override log, and the sample distributors.

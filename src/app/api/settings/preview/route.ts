@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const actor = await requirePermission(request, "view");
   if (isResponse(actor)) return actor;
-  void actor;
   const parsed = z.object({ config: ruleConfigSchema }).safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     const issue = parsed.error.issues[0];

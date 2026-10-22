@@ -38,7 +38,6 @@ export const HEADLINE_FIELDS = ["asOf", "totalLines", "reorderNow", "reorder15x"
 const HEADLINE_TOP_FIELDS = ["name", "action", "coverWeeks", "qty"] as const;
 
 const MAX_TEXT = 120;
-// eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001F\u007F]/;
 
 export class PayloadViolation extends Error {}
