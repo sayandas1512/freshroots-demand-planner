@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/", label: "Review" },
   { href: "/settings", label: "Settings" },
   { href: "/data", label: "Data" },
+  { href: "/outcomes", label: "Outcomes" },
   { href: "/health", label: "Health" },
   { href: "/backtest", label: "Backtest" },
 ];

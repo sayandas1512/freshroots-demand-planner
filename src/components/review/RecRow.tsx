@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { FULL_MOTION_QUERY, motionTokens } from "@/lib/motion";
 import { gsap, useGSAP } from "@/lib/gsap";
 import type { ReviewRow } from "@/run/review-types";
@@ -16,6 +16,7 @@ interface Props {
   selected: boolean;
   virtual: boolean;
   locked: boolean;
+  onViewed: (id: string) => void;
   scroller: HTMLElement | null;
   panel: PanelMode | null;
   busy: boolean;
@@ -61,6 +62,31 @@ function RecRowImpl(props: Props) {
     },
     { scope: rowRef, dependencies: [row.status] },
   );
+
+  // Decision time: the row counts as viewed once at least 60% of it has been on screen for a full second.
+  const { onViewed, locked } = props;
+  const pending = row.status === "pending";
+  const rowId = row.id;
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el || locked || !pending || typeof IntersectionObserver === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) timer ??= setTimeout(() => onViewed(rowId), 1000);
+        else if (timer) {
+          clearTimeout(timer);
+          timer = null;
+        }
+      },
+      { threshold: 0.6 },
+    );
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [locked, pending, rowId, onViewed]);
 
   const stripe = stripeFor(row);
   const qtyShown = row.status === "edited" && row.finalQty !== null ? row.finalQty : row.qty;

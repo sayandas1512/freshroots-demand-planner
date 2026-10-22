@@ -88,6 +88,11 @@ export const rowSchemas = {
     unitsOnHand: wholeNumber("Units_On_Hand", 0),
     asOfDate: isoDate,
   }),
+  outcomes_weekly: z.object({
+    week: z.string().trim().regex(WEEK_PATTERN, "must be an ISO week like 2026-W42"),
+    stockoutIncidents: wholeNumber("Stockout_Incidents", 0),
+    overstockValueInr: wholeNumber("Overstock_Value_INR", 0),
+  }),
   orders: z.object({
     skuId: id,
     week: z.string().trim().regex(WEEK_PATTERN, "must be an ISO week like 2026-W42"),
@@ -113,6 +118,7 @@ export const rowKeys: { [K in ParseKind]: (row: RowFor<K>) => string } = {
   festival_calendar: (r) => r.yearMonth,
   sales: (r) => `${r.skuId}|${r.week}`,
   inventory: (r) => `${r.skuId}|${r.location}|${r.asOfDate}`,
+  outcomes_weekly: (r) => r.week,
   orders: (r) => `${r.skuId}|${r.week}`,
   open_pos: () => "",
 };

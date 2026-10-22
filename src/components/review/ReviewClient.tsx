@@ -119,6 +119,22 @@ export function ReviewClient({ data, today, mode, killed, canDecide, canExport, 
     }
   }
 
+  // ---- decision timing: batch "first viewed" marks to the server
+  const viewQueue = useRef(new Set<string>());
+  const viewSent = useRef(new Set<string>());
+  const viewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markViewed = useCallback((id: string) => {
+    if (viewSent.current.has(id)) return;
+    viewSent.current.add(id);
+    viewQueue.current.add(id);
+    viewTimer.current ??= setTimeout(() => {
+      viewTimer.current = null;
+      const ids = [...viewQueue.current].slice(0, 100);
+      viewQueue.current = new Set([...viewQueue.current].slice(100));
+      if (ids.length > 0) void fetch("/api/recommendations/viewed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }), keepalive: true }).catch(() => undefined);
+    }, 1500);
+  }, []);
+
   // ---- decisions
   const patchRow = useCallback((id: string, patch: Partial<ReviewRow>) => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r))), []);
 
@@ -323,6 +339,7 @@ export function ReviewClient({ data, today, mode, killed, canDecide, canExport, 
     selected: selectedId === row.id,
     virtual,
     locked,
+    onViewed: markViewed,
     scroller,
     panel: panel?.id === row.id ? panel.mode : null,
     busy: busyId === row.id,

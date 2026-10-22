@@ -9,6 +9,7 @@ import { can } from "@/auth/roles";
 import { getDb } from "@/db/client";
 import { killState } from "@/db/schema";
 import { goLiveReadiness } from "@/golive/readiness";
+import { decisionStats } from "@/kill/gather";
 import { previewKill } from "@/kill/run";
 import { getKillState } from "@/kill/state";
 import { getActiveConfig } from "@/run/config-store";
@@ -49,7 +50,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
   const db = await getDb();
-  const [h, kill, killCheck, readiness, active, actor, history] = await Promise.all([
+  const [h, kill, killCheck, readiness, active, actor, history, timing] = await Promise.all([
     loadHealth(db, q.slice(0, 100)),
     getKillState(db),
     previewKill(db),
@@ -57,6 +58,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
     getActiveConfig(db),
     currentActor(),
     db.select().from(killState).orderBy(desc(killState.at)).limit(8),
+    decisionStats(db, 4),
   ]);
   const role = actor?.role ?? "planner";
   const chronological = [...h.runs].reverse();
@@ -135,6 +137,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
       <section className="grid grid-4" aria-label="Key figures">
         <div className="card stat"><span className="stat-label">Runs (last 40)</span><span className="stat-value"><CountUp value={h.totals.runs} /></span><span className="muted small">{h.totals.lines} lines reviewed</span></div>
         <div className="card stat"><span className="stat-label">Override rate</span><span className="stat-value">{h.totals.overrideRate === null ? "n/a" : <CountUp value={h.totals.overrideRate * 100} decimals={1} suffix="%" testId="kpi-override" />}</span><span className="muted small">edits + rejections over all lines{h.totals.overrideRateDecided !== null ? ` · ${pct(h.totals.overrideRateDecided)} of decided lines` : ""}</span></div>
+        <div className="card stat" data-testid="kpi-timing"><span className="stat-label">Decision time (last {timing.runs || 4} runs)</span><span className="stat-value">{timing.medianSeconds === null ? "n/a" : <CountUp value={timing.medianSeconds} decimals={1} suffix=" s" />}</span><span className="muted small">median per decision · override rate {pct(timing.overrideRate)} over {timing.decided} decided lines</span></div>
         <div className="card stat"><span className="stat-label">Template fallback</span><span className="stat-value">{h.totals.templateRate === null ? "n/a" : <CountUp value={h.totals.templateRate * 100} decimals={1} suffix="%" />}</span><span className="muted small">flagged lines using template wording</span></div>
         <div className="card stat"><span className="stat-label">Exceptions per run</span><span className="stat-value">{h.totals.avgExceptions === null ? "n/a" : <CountUp value={h.totals.avgExceptions} decimals={1} />}</span><span className="muted small">routed to Raghav</span></div>
         <div className="card stat"><span className="stat-label">LLM calls</span><span className="stat-value"><CountUp value={h.totals.llmCalls} /></span><span className="muted small">across the last 40 runs</span></div>

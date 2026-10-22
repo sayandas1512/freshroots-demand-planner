@@ -117,3 +117,17 @@ export async function gatherKillInput(db: Db): Promise<KillInput> {
     allRuns: stats,
   };
 }
+
+/** Override rate and median decision time over the newest completed runs that have decisions. Shown on Health. */
+export async function decisionStats(db: Db, runCount: number): Promise<{ runs: number; decided: number; overrideRate: number | null; medianSeconds: number | null }> {
+  const stats = (await recentRunStats(db, 40)).filter((s) => s.overrideRate !== null).slice(0, runCount);
+  if (stats.length === 0) return { runs: 0, decided: 0, overrideRate: null, medianSeconds: null };
+  const lines = await db
+    .select({ status: recommendations.status, viewed: recommendations.firstViewedAt, decided: recommendations.decidedAt })
+    .from(recommendations)
+    .where(inArray(recommendations.runId, stats.map((s) => s.runId)));
+  const decided = lines.filter((l) => l.status !== "pending");
+  const seconds = decided.filter((l) => l.viewed && l.decided).map((l) => Math.max(0, ((l.decided as Date).getTime() - (l.viewed as Date).getTime()) / 1000));
+  const overridden = decided.filter((l) => l.status === "edited" || l.status === "rejected").length;
+  return { runs: stats.length, decided: decided.length, overrideRate: decided.length === 0 ? null : overridden / decided.length, medianSeconds: median(seconds) };
+}
