@@ -64,4 +64,6 @@ export interface LlmProvider {
   readonly model: string;
   explain(facts: ExplainFacts[], signal: AbortSignal): Promise<ExplainResponse>;
   headline(facts: HeadlineFacts, signal: AbortSignal): Promise<HeadlineResponse>;
+  /** Optional liveness check used by the Health page. */
+  ping?(signal: AbortSignal): Promise<void>;
 }

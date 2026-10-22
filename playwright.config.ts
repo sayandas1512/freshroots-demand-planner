@@ -17,6 +17,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 240_000,
-    env: { PGLITE_DIR: ".data/e2e", SESSION_SECRET: "e2e-session-secret-0123456789", SEED_USERS: JSON.stringify([{ email: "raghav@freshroots.test", name: "Raghav", role: "planner", password: "planner-pass-123" }, { email: "deepa@freshroots.test", name: "Deepa", role: "sponsor", password: "sponsor-pass-123" }, { email: "priya@freshroots.test", name: "Priya", role: "data", password: "data-pass-12345" }, { email: "it@freshroots.test", name: "IT Admin", role: "admin", password: "admin-pass-1234" }]), CRON_SECRET: "e2e-cron-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "" },
+    env: { PGLITE_DIR: ".data/e2e", SESSION_SECRET: "e2e-session-secret-0123456789", SEED_USERS: JSON.stringify([{ email: "raghav@freshroots.test", name: "Raghav", role: "planner", password: "planner-pass-123" }, { email: "deepa@freshroots.test", name: "Deepa", role: "sponsor", password: "sponsor-pass-123" }, { email: "priya@freshroots.test", name: "Priya", role: "data", password: "data-pass-12345" }, { email: "it@freshroots.test", name: "IT Admin", role: "admin", password: "admin-pass-1234" }]), CRON_SECRET: "e2e-cron-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "", GEMINI_API_KEY: "" },
   },
 });

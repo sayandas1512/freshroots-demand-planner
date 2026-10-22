@@ -13,10 +13,12 @@ import { decisionStats } from "@/kill/gather";
 import { previewKill } from "@/kill/run";
 import { getKillState } from "@/kill/state";
 import { getActiveConfig } from "@/run/config-store";
+import { systemHealth } from "@/run/healthcheck";
 import { compareToRange, formatLakh } from "@/run/baseline";
 import { loadHealth, type HealthRun } from "@/run/health";
 import { BaselineForm } from "./BaselineForm";
 import { GoLiveChecklist } from "./GoLiveChecklist";
+import { SystemStatus } from "./SystemStatus";
 import { ClearKillForm } from "./KillPanel";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +52,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
   const db = await getDb();
-  const [h, kill, killCheck, readiness, active, actor, history, timing] = await Promise.all([
+  const [h, kill, killCheck, readiness, active, actor, history, timing, sys] = await Promise.all([
     loadHealth(db, q.slice(0, 100)),
     getKillState(db),
     previewKill(db),
@@ -59,6 +61,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
     currentActor(),
     db.select().from(killState).orderBy(desc(killState.at)).limit(8),
     decisionStats(db, 4),
+    systemHealth(db),
   ]);
   const role = actor?.role ?? "planner";
   const chronological = [...h.runs].reverse();
@@ -89,6 +92,8 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           </div>
         </section>
       ) : null}
+
+      <SystemStatus initial={sys} />
 
       <section className="card section kill-section" aria-labelledby="kill-h" data-testid="kill-section">
         <div className="log-head">

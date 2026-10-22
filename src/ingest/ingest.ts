@@ -1,6 +1,7 @@
 import { count, inArray, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/client";
 import { distributors, festivalMonths, ingestReports, inventorySnapshots, openPos, skus, weeklySales, weeklySalesByDistributor } from "@/db/schema";
+import { log } from "@/lib/log";
 import { getActiveConfig } from "@/run/config-store";
 import { LIMITS, type IngestKind } from "./mapping";
 import { parseCsv, type RowIssue } from "./parse";
@@ -253,6 +254,7 @@ export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text
     warnings: [...warnings, ...(applied.warnings ?? [])].slice(0, LIMITS.maxRejectsReported),
   };
 
+  log("info", "file ingested", { kind, fileName: fileName.slice(0, 120), accepted: report.accepted, rejected: report.rejected, replaced: report.replaced, userId });
   await db.insert(ingestReports).values({
     kind,
     fileName: fileName.slice(0, 200),

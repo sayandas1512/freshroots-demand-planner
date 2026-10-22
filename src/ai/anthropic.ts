@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { buildExplainPayload, buildHeadlinePayload } from "./payload";
 import { EXPLAIN_SYSTEM, HEADLINE_SYSTEM } from "./prompts";
 import type { ExplainFacts, ExplainResponse, HeadlineFacts, HeadlineResponse, LlmProvider, LlmUsage } from "./types";
 
@@ -10,37 +11,6 @@ const headlineSchema = z.object({ headline: z.tuple([z.string().min(1), z.string
 function parseJson(text: string): unknown {
   const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   return JSON.parse(trimmed);
-}
-
-function wireFacts(f: ExplainFacts) {
-  return {
-    sku_id: f.skuId,
-    sku_name: f.name,
-    category: f.category,
-    perishable: f.perishable,
-    flags: f.flags,
-    rule_fired: f.ruleFired,
-    action: f.action,
-    urgent: f.urgent,
-    quantity: f.qty,
-    standard_reorder_qty: f.standardReorderQty,
-    high_demand_multiplier: f.multiplier,
-    baseline_weeks: f.baselineWeeks,
-    baseline_avg_units_per_week: f.baselineAvg,
-    recent_weeks: f.recentWeeks,
-    recent_avg_units_per_week: f.recentAvg,
-    recent_to_baseline_ratio: f.ratio,
-    high_demand_ratio_threshold: f.ratioThreshold,
-    demand_per_week_used_for_cover: f.demandPerWeek,
-    stock_on_hand: f.stockOnHand,
-    open_po_qty: f.openPoQty,
-    open_po_counted_as_stock: f.openPoCounted,
-    cover_weeks: f.coverWeeks,
-    min_cover_weeks: f.coverMin,
-    max_cover_weeks: f.coverMax,
-    festival: f.festival,
-    uplift_percent: f.upliftPercent,
-  };
 }
 
 export class AnthropicProvider implements LlmProvider {
@@ -64,13 +34,18 @@ export class AnthropicProvider implements LlmProvider {
     return { text, usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens } };
   }
 
+  /** Cheapest possible call, to show on Health that the key and model work. */
+  async ping(signal: AbortSignal): Promise<void> {
+    await this.complete("Reply with the single word ok.", "ping", 5, signal);
+  }
+
   async explain(facts: ExplainFacts[], signal: AbortSignal): Promise<ExplainResponse> {
-    const { text, usage } = await this.complete(EXPLAIN_SYSTEM, JSON.stringify(facts.map(wireFacts)), 2000 + facts.length * 120, signal);
+    const { text, usage } = await this.complete(EXPLAIN_SYSTEM, JSON.stringify(buildExplainPayload(facts)), 2000 + facts.length * 120, signal);
     return { reasons: reasonsSchema.parse(parseJson(text)), usage };
   }
 
   async headline(facts: HeadlineFacts, signal: AbortSignal): Promise<HeadlineResponse> {
-    const { text, usage } = await this.complete(HEADLINE_SYSTEM, JSON.stringify(facts), 600, signal);
+    const { text, usage } = await this.complete(HEADLINE_SYSTEM, JSON.stringify(buildHeadlinePayload(facts)), 600, signal);
     return { headline: headlineSchema.parse(parseJson(text)).headline, usage };
   }
 }
