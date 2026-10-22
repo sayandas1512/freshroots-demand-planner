@@ -4,7 +4,7 @@ import { backtestResults, runs } from "@/db/schema";
 import { evaluateAll } from "@/engine/evaluate";
 import { isoWeekOf, weekStart, WEEK_PATTERN, addDays } from "@/engine/weeks";
 import { getActiveConfig } from "@/run/config-store";
-import { loadEngineData } from "@/run/load";
+import { engineDataAt, loadHistory } from "@/run/history";
 import { compareLines, summarise, type BacktestRow, type BacktestSummary, type OrdersByWeek, type SystemLine } from "./compare";
 
 export const MAX_BACKTEST_WEEKS = 26;
@@ -48,11 +48,13 @@ export async function runBacktest(db: Db, input: { from: string; to: string; ord
     .returning({ id: runs.id });
   if (!run) throw new Error("Could not create backtest run");
 
+  // Load history once, then slice it per replayed week. Each slice only contains what existed on that run date.
+  const history = await loadHistory(db, { includeDistributors: config.enable_distributor_exceptions, upToWeek: weeks.at(-1) as string });
   const lines: SystemLine[] = [];
   const notes: string[] = [];
   for (const week of weeks) {
     const asOf = replayAsOf(week);
-    const { data, latestInventoryDate } = await loadEngineData(db, asOf, { includeOpenPos: false, includeDistributors: config.enable_distributor_exceptions });
+    const { data, latestInventoryDate } = engineDataAt(history, asOf);
     const result = evaluateAll(data, config);
     for (const l of result.lines) lines.push({ week, skuId: l.skuId, systemAction: l.action, systemQty: l.qty });
     for (const e of result.exceptions) lines.push({ week, skuId: e.skuId, systemAction: `exception:${e.type}`, systemQty: null });

@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/outcomes", label: "Outcomes" },
   { href: "/health", label: "Health" },
   { href: "/backtest", label: "Backtest" },
+  { href: "/shadow", label: "Shadow" },
 ];
 
 export function Nav({ userName, role, mode, killed }: { userName: string; role: Role; mode: "shadow" | "live"; killed: boolean }) {

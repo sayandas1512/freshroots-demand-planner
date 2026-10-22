@@ -7,7 +7,7 @@ export const INGEST_KINDS = ["sales", "sku_master", "distributors", "inventory",
 export type IngestKind = (typeof INGEST_KINDS)[number];
 
 /** Files the parser understands. `orders` is only used by the backtest and is never stored. */
-export type ParseKind = IngestKind | "orders" | "outcomes_weekly";
+export type ParseKind = IngestKind | "orders" | "outcomes_weekly" | "shadow_orders";
 
 export interface FileMapping {
   label: string;
@@ -65,6 +65,13 @@ export const FILE_MAPPINGS: Record<ParseKind, FileMapping> = {
     columns: { skuId: "SKU_ID", location: "Location", unitsOnHand: "Units_On_Hand", asOfDate: "As_Of_Date" },
     optional: [],
     loadOrder: 5,
+  },
+  shadow_orders: {
+    label: "Raghav's own monthly forecast or orders",
+    source: "Manual",
+    columns: { skuId: "SKU_ID", period: "Period", qty: "Qty" },
+    optional: [],
+    loadOrder: 9,
   },
   outcomes_weekly: {
     label: "Weekly outcomes",
