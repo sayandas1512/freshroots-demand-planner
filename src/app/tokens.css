@@ -1,0 +1,97 @@
+/* Design tokens. Every colour, size and duration used by the UI comes from here. */
+:root {
+  /* type */
+  --font-head: var(--font-familjen), "Familjen Grotesk", system-ui, sans-serif;
+  --font-body: var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+
+  /* space + shape */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+  --r-1: 3px; --r-2: 6px; --r-3: 10px;
+  --row-h: 68px;
+
+  /* motion: read by src/lib/motion.ts so CSS and GSAP share one source */
+  --dur-fast: .18s;
+  --dur-base: .4s;
+  --dur-slow: .8s;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --ease-inout: cubic-bezier(.65, 0, .35, 1);
+  --gsap-ease-out: power3.out;
+  --gsap-ease-inout: power2.inOut;
+  --gsap-ease-settle: back.out(1.6);
+}
+
+/* light */
+:root, :root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #e7ebf2;
+  --surface-3: #dde3ed;
+  --border: #cfd6e2;
+  --border-strong: #aab4c6;
+  --text: #121926;
+  --text-muted: #4d5a70;
+  --text-faint: #6b778c;
+  --accent: #0b6a3e;
+  --accent-ink: #ffffff;
+  --accent-soft: #d9f0e4;
+  --focus: #0b6a3e;
+
+  --st-stockout: #c0262d;      --st-stockout-bg: #fbe4e5;
+  --st-demand: #985700;        --st-demand-bg: #fcefd2;  --st-demand-mark: #e29a12;
+  --st-overstock: #1c63b0;     --st-overstock-bg: #e0edfa;
+  --st-perish: #0a747d;        --st-perish-bg: #d9f1f3;
+  --st-hold: #546074;          --st-hold-bg: #e5e9f0;
+  --st-exception: #6a4bbd;     --st-exception-bg: #ebe5f9;
+
+  --gauge-track: #dfe5ee;
+  --gauge-band: #cfe4d8;
+  --shadow: 0 1px 2px rgba(18, 25, 38, .06), 0 4px 16px rgba(18, 25, 38, .06);
+}
+
+/* dark: designed separately, not an inversion */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d121a;
+  --surface: #141b26;
+  --surface-2: #1b2432;
+  --surface-3: #243044;
+  --border: #2a3648;
+  --border-strong: #3c4b63;
+  --text: #e4e9f1;
+  --text-muted: #9aa8bd;
+  --text-faint: #7d8aa0;
+  --accent: #4bd698;
+  --accent-ink: #062315;
+  --accent-soft: #123626;
+  --focus: #4bd698;
+
+  --st-stockout: #ff7b7f;      --st-stockout-bg: #3a1c20;
+  --st-demand: #f3b640;        --st-demand-bg: #382a0f;  --st-demand-mark: #f3b640;
+  --st-overstock: #66b0f7;     --st-overstock-bg: #14293f;
+  --st-perish: #46cdd8;        --st-perish-bg: #0f3236;
+  --st-hold: #93a0b5;          --st-hold-bg: #212b3a;
+  --st-exception: #ac9af5;     --st-exception-bg: #2a2348;
+
+  --gauge-track: #243044;
+  --gauge-band: #1c4333;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #0d121a; --surface: #141b26; --surface-2: #1b2432; --surface-3: #243044;
+    --border: #2a3648; --border-strong: #3c4b63; --text: #e4e9f1; --text-muted: #9aa8bd; --text-faint: #7d8aa0;
+    --accent: #4bd698; --accent-ink: #062315; --accent-soft: #123626; --focus: #4bd698;
+    --st-stockout: #ff7b7f; --st-stockout-bg: #3a1c20;
+    --st-demand: #f3b640; --st-demand-bg: #382a0f; --st-demand-mark: #f3b640;
+    --st-overstock: #66b0f7; --st-overstock-bg: #14293f;
+    --st-perish: #46cdd8; --st-perish-bg: #0f3236;
+    --st-hold: #93a0b5; --st-hold-bg: #212b3a;
+    --st-exception: #ac9af5; --st-exception-bg: #2a2348;
+    --gauge-track: #243044; --gauge-band: #1c4333;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .35);
+  }
+}

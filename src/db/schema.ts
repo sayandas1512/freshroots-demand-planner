@@ -1,0 +1,249 @@
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  serial,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import type { LineMetrics } from "@/engine/types";
+
+export const perishabilityEnum = pgEnum("perishability", ["low", "high"]);
+export const actionEnum = pgEnum("action", ["REORDER_NOW", "REORDER_1_5X", "PAUSE", "HOLD"]);
+export const triggerEnum = pgEnum("run_trigger", ["cron", "manual", "backtest"]);
+export const runStatusEnum = pgEnum("run_status", ["running", "completed", "completed_degraded", "failed"]);
+export const llmStatusEnum = pgEnum("llm_status", ["ok", "partial", "failed", "skipped"]);
+export const explanationSourceEnum = pgEnum("explanation_source", ["llm", "template"]);
+export const decisionStatusEnum = pgEnum("decision_status", ["pending", "approved", "edited", "rejected"]);
+export const exceptionTypeEnum = pgEnum("exception_type", [
+  "new_sku",
+  "short_history",
+  "missing_stock",
+  "zero_demand",
+  "anomalous_jump",
+  "unknown_sku",
+  "conflicting_signals",
+  "processing_error",
+]);
+export const exceptionStatusEnum = pgEnum("exception_status", ["open", "handled"]);
+
+const ts = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
+
+export const distributors = pgTable("distributors", {
+  distributorId: text("distributor_id").primaryKey(),
+  name: text("name").notNull(),
+  region: text("region").notNull(),
+  status: text("status").notNull(),
+});
+
+export const skus = pgTable(
+  "skus",
+  {
+    skuId: text("sku_id").primaryKey(),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    perishability: perishabilityEnum("perishability").notNull(),
+    standardReorderQty: integer("standard_reorder_qty").notNull(),
+    unit: text("unit").notNull(),
+    // No FK: ingestion order is not guaranteed and a missing distributor must not block the SKU master.
+    distributorId: text("distributor_id").notNull(),
+  },
+  (t) => [index("skus_distributor_idx").on(t.distributorId)],
+);
+
+export const weeklySales = pgTable(
+  "weekly_sales",
+  {
+    skuId: text("sku_id").notNull(),
+    week: text("week").notNull(),
+    units: integer("units").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.skuId, t.week] }), index("weekly_sales_week_idx").on(t.week)],
+);
+
+export const inventorySnapshots = pgTable(
+  "inventory_snapshots",
+  {
+    skuId: text("sku_id").notNull(),
+    location: text("location").notNull(),
+    unitsOnHand: integer("units_on_hand").notNull(),
+    asOfDate: date("as_of_date", { mode: "string" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.skuId, t.location, t.asOfDate] }), index("inventory_as_of_idx").on(t.asOfDate)],
+);
+
+export const openPos = pgTable(
+  "open_pos",
+  {
+    id: serial("id").primaryKey(),
+    skuId: text("sku_id").notNull(),
+    qty: integer("qty").notNull(),
+    expectedDate: date("expected_date", { mode: "string" }),
+  },
+  (t) => [index("open_pos_sku_idx").on(t.skuId)],
+);
+
+export const festivalMonths = pgTable("festival_months", {
+  yearMonth: text("year_month").primaryKey(),
+  isFestival: boolean("is_festival").notNull(),
+});
+
+export const ruleConfig = pgTable(
+  "rule_config",
+  {
+    id: serial("id").primaryKey(),
+    version: integer("version").notNull(),
+    config: jsonb("config").$type<Record<string, unknown>>().notNull(),
+    isActive: boolean("is_active").notNull().default(false),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    note: text("note").notNull().default(""),
+  },
+  (t) => [
+    uniqueIndex("rule_config_version_idx").on(t.version),
+    uniqueIndex("rule_config_one_active_idx").on(t.isActive).where(sql`${t.isActive}`),
+  ],
+);
+
+export interface RunCounts {
+  lines?: number;
+  exceptions?: number;
+  byAction?: Record<string, number>;
+  byFlag?: Record<string, number>;
+  byRule?: Record<string, number>;
+  steps?: Record<string, { status: "pending" | "running" | "done" | "degraded" | "failed" | "skipped"; at?: string; detail?: string }>;
+  notes?: string[];
+  [key: string]: unknown;
+}
+
+export const runs = pgTable(
+  "runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    trigger: triggerEnum("trigger").notNull(),
+    asOfDate: date("as_of_date", { mode: "string" }).notNull(),
+    configVersion: integer("config_version"),
+    status: runStatusEnum("status").notNull().default("running"),
+    startedAt: ts("started_at").notNull().defaultNow(),
+    finishedAt: ts("finished_at"),
+    counts: jsonb("counts").$type<RunCounts>().notNull().default({}),
+    llmStatus: llmStatusEnum("llm_status").notNull().default("skipped"),
+    llmCalls: integer("llm_calls").notNull().default(0),
+    llmCostUsd: numeric("llm_cost_usd", { precision: 12, scale: 6 }),
+  },
+  (t) => [index("runs_as_of_trigger_idx").on(t.asOfDate, t.trigger), index("runs_started_idx").on(t.startedAt), index("runs_status_idx").on(t.status)],
+);
+
+export const recommendations = pgTable(
+  "recommendations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    skuId: text("sku_id").notNull(),
+    action: actionEnum("action").notNull(),
+    flags: text("flags").array().notNull().default(sql`'{}'::text[]`),
+    ruleFired: text("rule_fired").notNull(),
+    qty: integer("qty"),
+    /** Frozen audit snapshot of the numbers behind the line. The only derived data we store. */
+    metrics: jsonb("metrics").$type<LineMetrics>().notNull(),
+    explanation: text("explanation").notNull(),
+    explanationSource: explanationSourceEnum("explanation_source").notNull().default("template"),
+    status: decisionStatusEnum("status").notNull().default("pending"),
+    finalQty: integer("final_qty"),
+    decidedAt: ts("decided_at"),
+    decidedNote: text("decided_note"),
+  },
+  (t) => [
+    index("recommendations_run_idx").on(t.runId),
+    index("recommendations_sku_idx").on(t.skuId),
+    index("recommendations_status_idx").on(t.status),
+    index("recommendations_rule_idx").on(t.ruleFired),
+    uniqueIndex("recommendations_run_sku_idx").on(t.runId, t.skuId),
+  ],
+);
+
+export const exceptions = pgTable(
+  "exceptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    skuId: text("sku_id").notNull(),
+    type: exceptionTypeEnum("type").notNull(),
+    detail: text("detail").notNull(),
+    status: exceptionStatusEnum("status").notNull().default("open"),
+    handledNote: text("handled_note"),
+    handledAt: ts("handled_at"),
+  },
+  (t) => [index("exceptions_run_idx").on(t.runId), index("exceptions_type_idx").on(t.type)],
+);
+
+export const overrides = pgTable(
+  "overrides",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recommendationId: uuid("recommendation_id").notNull().references(() => recommendations.id, { onDelete: "cascade" }),
+    field: text("field").notNull(),
+    fromValue: text("from_value"),
+    toValue: text("to_value"),
+    reason: text("reason").notNull(),
+    at: ts("at").notNull().defaultNow(),
+  },
+  (t) => [index("overrides_rec_idx").on(t.recommendationId), index("overrides_at_idx").on(t.at)],
+);
+
+export const runHeadlines = pgTable("run_headlines", {
+  runId: uuid("run_id").primaryKey().references(() => runs.id, { onDelete: "cascade" }),
+  /** Three lines separated by "\n". */
+  text: text("text").notNull(),
+  source: explanationSourceEnum("source").notNull(),
+});
+
+export const baseline = pgTable("baseline", {
+  period: text("period").primaryKey(),
+  stockoutLossInr: integer("stockout_loss_inr").notNull(),
+  /** Upper end when the baseline is a range (the brief gives ranges). Null for an exact entry. */
+  stockoutLossInrHigh: integer("stockout_loss_inr_high"),
+  writeoffInr: integer("writeoff_inr").notNull(),
+  writeoffInrHigh: integer("writeoff_inr_high"),
+  source: text("source").notNull(),
+});
+
+export const backtestResults = pgTable(
+  "backtest_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
+    week: text("week").notNull(),
+    skuId: text("sku_id").notNull(),
+    systemAction: text("system_action").notNull(),
+    systemQty: integer("system_qty"),
+    raghavAction: text("raghav_action"),
+    orderedQty: integer("ordered_qty"),
+    agreed: boolean("agreed"),
+  },
+  (t) => [index("backtest_run_idx").on(t.runId), index("backtest_week_idx").on(t.week)],
+);
+
+/** Last ingestion report per file kind, so the Data page can show it after a reload. */
+export const ingestReports = pgTable(
+  "ingest_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    kind: text("kind").notNull(),
+    fileName: text("file_name").notNull(),
+    accepted: integer("accepted").notNull(),
+    rejected: integer("rejected").notNull(),
+    replaced: integer("replaced").notNull(),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull(),
+    at: ts("at").notNull().defaultNow(),
+  },
+  (t) => [index("ingest_reports_kind_at_idx").on(t.kind, t.at)],
+);
