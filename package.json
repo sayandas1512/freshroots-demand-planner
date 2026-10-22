@@ -21,7 +21,8 @@
     "seed:users": "tsx scripts/seed-users.ts",
     "run:now": "tsx scripts/run-now.ts",
     "backtest": "tsx scripts/backtest.ts",
-    "fixtures:build": "tsx scripts/build-fixtures.ts"
+    "fixtures:build": "tsx scripts/build-fixtures.ts",
+    "gen:synthetic": "tsx scripts/gen-synthetic.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

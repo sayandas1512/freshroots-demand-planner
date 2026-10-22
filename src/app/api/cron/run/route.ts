@@ -2,7 +2,8 @@ import { after, NextResponse } from "next/server";
 import { bearerMatches } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { todayIst } from "@/lib/dates";
-import { executeRun, startRun } from "@/run/execute";
+import { driveRun } from "@/run/drive";
+import { startRun } from "@/run/execute";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   const started = await startRun(db, { trigger: "cron", asOf: todayIst() });
   if (started.reason === "killed") return NextResponse.json({ runId: started.runId, reason: "killed" });
-  if (started.created) after(() => executeRun(db, started.runId));
+  const origin = new URL(request.url).origin;
+  if (started.created) after(() => driveRun(db, origin, started.runId));
   return NextResponse.json({ runId: started.runId, reason: started.reason });
 }

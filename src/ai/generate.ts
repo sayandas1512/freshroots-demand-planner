@@ -13,9 +13,14 @@ export interface Explanation {
   source: "llm" | "template";
 }
 
+export interface HeadlineResult {
+  lines: [string, string, string];
+  source: "llm" | "template";
+}
+
 export interface Narrative {
   explanations: Explanation[];
-  headline: { lines: [string, string, string]; source: "llm" | "template" };
+  headline: HeadlineResult;
   llmStatus: LlmStatus;
   calls: number;
   usage: LlmUsage;
@@ -48,34 +53,28 @@ function addUsage(total: LlmUsage, add: LlmUsage): void {
   total.outputTokens += add.outputTokens;
 }
 
+export interface ExplainChunk {
+  explanations: Explanation[];
+  calls: number;
+  usage: LlmUsage;
+}
+
 /**
- * Produce the reason for every flagged line and the run headline. Templates are computed first, so every
- * line always has wording; the LLM only replaces a template when its output passes the guardrails.
- * Nothing here can throw: any failure degrades to template text.
+ * Reasons for a chunk of flagged lines, 25 per LLM call. Every line starts with its template; the LLM only replaces
+ * it when its output passes the guardrails. Never throws: any failure leaves the template in place.
+ * The run machine calls this a few batches at a time so no single invocation has to do the whole sheet.
  */
-export async function generateNarrative(
-  provider: LlmProvider | null,
-  flagged: readonly ExplainFacts[],
-  headlineFacts: HeadlineFacts,
-  options: NarrativeOptions = {},
-): Promise<Narrative> {
-  const timeout = options.callTimeoutMs ?? CALL_TIMEOUT_MS;
+export async function explainChunk(provider: LlmProvider | null, flagged: readonly ExplainFacts[], callTimeoutMs: number = CALL_TIMEOUT_MS): Promise<ExplainChunk> {
   const explanations: Explanation[] = flagged.map((f) => ({ skuId: f.skuId, text: templateReason(f), source: "template" }));
-  const byId = new Map(explanations.map((e) => [e.skuId, e]));
-  const factsById = new Map(flagged.map((f) => [f.skuId, f]));
-  const headline: Narrative["headline"] = { lines: templateHeadline(headlineFacts), source: "template" };
   const usage: LlmUsage = { inputTokens: 0, outputTokens: 0 };
   const counter = { calls: 0 };
+  if (!provider) return { explanations, calls: 0, usage };
 
-  if (!provider) {
-    await options.onPhase?.("llm_explain", true);
-    await options.onPhase?.("llm_headline", true);
-    return { explanations, headline, llmStatus: "skipped", calls: 0, usage };
-  }
-
+  const byId = new Map(explanations.map((e) => [e.skuId, e]));
+  const factsById = new Map(flagged.map((f) => [f.skuId, f]));
   for (let i = 0; i < flagged.length; i += BATCH_SIZE) {
     const batch = flagged.slice(i, i + BATCH_SIZE);
-    const res = await attempt((signal) => provider.explain([...batch], signal), timeout, counter);
+    const res = await attempt((signal) => provider.explain([...batch], signal), callTimeoutMs, counter);
     if (!res) continue;
     addUsage(usage, res.usage);
     const asked = new Set(batch.map((b) => b.skuId));
@@ -91,22 +90,52 @@ export async function generateNarrative(
       }
     }
   }
-  const explainDegraded = explanations.some((e) => e.source === "template");
-  await options.onPhase?.("llm_explain", explainDegraded);
-
-  const hl = await attempt((signal) => provider.headline(headlineFacts, signal), timeout, counter);
-  if (hl) {
-    addUsage(usage, hl.usage);
-    if (validateHeadline(hl.headline, headlineFacts).ok) {
-      headline.lines = [hl.headline[0].trim(), hl.headline[1].trim(), hl.headline[2].trim()];
-      headline.source = "llm";
-    }
-  }
-  await options.onPhase?.("llm_headline", headline.source === "template");
-
-  const total = explanations.length + 1;
-  const good = explanations.filter((e) => e.source === "llm").length + (headline.source === "llm" ? 1 : 0);
-  const llmStatus: LlmStatus = good === total ? "ok" : good === 0 ? "failed" : "partial";
-  return { explanations, headline, llmStatus, calls: counter.calls, usage };
+  return { explanations, calls: counter.calls, usage };
 }
 
+/** The three-line run headline, template first, LLM only when it passes the guardrails. Never throws. */
+export async function headlineFor(provider: LlmProvider | null, facts: HeadlineFacts, callTimeoutMs: number = CALL_TIMEOUT_MS): Promise<HeadlineResult & { calls: number; usage: LlmUsage }> {
+  const result: HeadlineResult = { lines: templateHeadline(facts), source: "template" };
+  const usage: LlmUsage = { inputTokens: 0, outputTokens: 0 };
+  const counter = { calls: 0 };
+  if (!provider) return { ...result, calls: 0, usage };
+  const hl = await attempt((signal) => provider.headline(facts, signal), callTimeoutMs, counter);
+  if (hl) {
+    addUsage(usage, hl.usage);
+    if (validateHeadline(hl.headline, facts).ok) {
+      result.lines = [hl.headline[0].trim(), hl.headline[1].trim(), hl.headline[2].trim()];
+      result.source = "llm";
+    }
+  }
+  return { ...result, calls: counter.calls, usage };
+}
+
+/** Overall status from how many pieces of wording (lines plus the headline) came from the LLM. */
+export function llmStatusFor(good: number, total: number, hasProvider: boolean): LlmStatus {
+  if (!hasProvider) return "skipped";
+  return good === total ? "ok" : good === 0 ? "failed" : "partial";
+}
+
+/** Reasons for every flagged line and the headline in one go. Used by tests and the backtest-free paths. */
+export async function generateNarrative(
+  provider: LlmProvider | null,
+  flagged: readonly ExplainFacts[],
+  headlineFacts: HeadlineFacts,
+  options: NarrativeOptions = {},
+): Promise<Narrative> {
+  const timeout = options.callTimeoutMs ?? CALL_TIMEOUT_MS;
+  const explained = await explainChunk(provider, flagged, timeout);
+  await options.onPhase?.("llm_explain", !provider || explained.explanations.some((e) => e.source === "template"));
+  const headline = await headlineFor(provider, headlineFacts, timeout);
+  await options.onPhase?.("llm_headline", !provider || headline.source === "template");
+
+  const usage: LlmUsage = { inputTokens: explained.usage.inputTokens + headline.usage.inputTokens, outputTokens: explained.usage.outputTokens + headline.usage.outputTokens };
+  const good = explained.explanations.filter((e) => e.source === "llm").length + (headline.source === "llm" ? 1 : 0);
+  return {
+    explanations: explained.explanations,
+    headline: { lines: headline.lines, source: headline.source },
+    llmStatus: llmStatusFor(good, explained.explanations.length + 1, provider !== null),
+    calls: explained.calls + headline.calls,
+    usage,
+  };
+}

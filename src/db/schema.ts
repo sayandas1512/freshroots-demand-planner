@@ -173,6 +173,12 @@ export const runs = pgTable(
     llmCalls: integer("llm_calls").notNull().default(0),
     llmCostUsd: numeric("llm_cost_usd", { precision: 12, scale: 6 }),
     startedBy: uuid("started_by"),
+    /** Resumable state machine: which step the run is on, where inside it, how often it has failed, and who holds it. */
+    step: text("step").notNull().default("prepare"),
+    cursor: integer("cursor").notNull().default(0),
+    attempts: integer("attempts").notNull().default(0),
+    leaseUntil: ts("lease_until"),
+    updatedAt: ts("updated_at").notNull().defaultNow(),
   },
   (t) => [index("runs_as_of_trigger_idx").on(t.asOfDate, t.trigger), index("runs_started_idx").on(t.startedAt), index("runs_status_idx").on(t.status)],
 );
