@@ -156,7 +156,7 @@ export async function executeRun(db: Db, runId: string, options: ExecuteOptions 
     // 1. ingest_check: config, data freshness, joined data
     await progress.step("ingest_check", "running");
     const { version, config } = await getActiveConfig(db);
-    const loaded = await loadEngineData(db, asOf);
+    const loaded = await loadEngineData(db, asOf, { includeOpenPos: true, includeDistributors: config.enable_distributor_exceptions });
     const inventoryAge = loaded.latestInventoryDate === null ? null : daysBetween(loaded.latestInventoryDate, asOf);
     const stale = inventoryAge === null || inventoryAge > config.stale_inventory_days;
     await db.update(runs).set({ configVersion: version }).where(eq(runs.id, runId));

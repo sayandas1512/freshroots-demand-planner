@@ -1,6 +1,6 @@
 import { and, eq, lte, max } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { festivalMonths, inventorySnapshots, openPos, skus, weeklySales } from "@/db/schema";
+import { festivalMonths, inventorySnapshots, openPos, skus, weeklySales, weeklySalesByDistributor } from "@/db/schema";
 import type { EngineData, SkuMaster } from "@/engine/types";
 import { lastCompleteWeek } from "@/engine/weeks";
 
@@ -14,7 +14,7 @@ export interface LoadedData {
  * Join SKU master, sales, stock, open POs and the festival calendar for a run date.
  * Only data that existed on `asOf` is read, which is what makes backtesting honest.
  */
-export async function loadEngineData(db: Db, asOf: string, opts: { includeOpenPos: boolean } = { includeOpenPos: true }): Promise<LoadedData> {
+export async function loadEngineData(db: Db, asOf: string, opts: { includeOpenPos: boolean; includeDistributors?: boolean } = { includeOpenPos: true }): Promise<LoadedData> {
   const skuRows = await db.select().from(skus).orderBy(skus.skuId);
   const masters: SkuMaster[] = skuRows.map((r) => ({
     skuId: r.skuId,
@@ -24,6 +24,8 @@ export async function loadEngineData(db: Db, asOf: string, opts: { includeOpenPo
     standardReorderQty: r.standardReorderQty,
     unit: r.unit,
     distributorId: r.distributorId,
+    leadTimeWeeks: r.leadTimeWeeks,
+    moq: r.moq,
   }));
 
   const salesRows = await db.select().from(weeklySales).where(lte(weeklySales.week, lastCompleteWeek(asOf)));
@@ -56,8 +58,21 @@ export async function loadEngineData(db: Db, asOf: string, opts: { includeOpenPo
 
   const festival = await db.select().from(festivalMonths).where(and(eq(festivalMonths.isFestival, true)));
 
+  let distributorSales: Map<string, Map<string, Map<string, number>>> | undefined;
+  if (opts.includeDistributors) {
+    distributorSales = new Map();
+    const rows = await db.select().from(weeklySalesByDistributor).where(lte(weeklySalesByDistributor.week, lastCompleteWeek(asOf)));
+    for (const r of rows) {
+      const bySku = distributorSales.get(r.skuId) ?? new Map<string, Map<string, number>>();
+      const byWeek = bySku.get(r.distributorId) ?? new Map<string, number>();
+      byWeek.set(r.week, r.units);
+      bySku.set(r.distributorId, byWeek);
+      distributorSales.set(r.skuId, bySku);
+    }
+  }
+
   return {
-    data: { asOf, skus: masters, sales, stock, openPo: poMap, festivalMonths: new Set(festival.map((f) => f.yearMonth)) },
+    data: { asOf, skus: masters, sales, stock, openPo: poMap, festivalMonths: new Set(festival.map((f) => f.yearMonth)), distributorSales },
     latestInventoryDate: newest?.d ?? null,
   };
 }

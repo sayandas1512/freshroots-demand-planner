@@ -14,6 +14,8 @@ export interface ParsedFile<K extends ParseKind> {
   rows: { row: number; value: RowFor<K> }[];
   rejects: RowIssue[];
   totalRows: number;
+  /** Internal field names whose column was in the file. Optional columns that are absent must not overwrite stored values. */
+  columnsPresent: string[];
   fileError?: string;
 }
 
@@ -24,7 +26,7 @@ function clip(raw: Record<string, unknown>): Record<string, string> {
 }
 
 function fail<K extends ParseKind>(kind: K, message: string, totalRows = 0): ParsedFile<K> {
-  return { kind, rows: [], rejects: [], totalRows, fileError: message };
+  return { kind, rows: [], rejects: [], totalRows, columnsPresent: [], fileError: message };
 }
 
 /**
@@ -100,5 +102,6 @@ export function parseCsv<K extends ParseKind>(kind: K, input: string): ParsedFil
     rows.push({ row: line, value });
   });
 
-  return { kind, rows, rejects, totalRows: parsed.data.length };
+  const columnsPresent = Object.entries(mapping.columns).filter(([, header]) => headers.includes(header)).map(([field]) => field);
+  return { kind, rows, rejects, totalRows: parsed.data.length, columnsPresent };
 }

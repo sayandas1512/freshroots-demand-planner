@@ -52,7 +52,7 @@ export async function runBacktest(db: Db, input: { from: string; to: string; ord
   const notes: string[] = [];
   for (const week of weeks) {
     const asOf = replayAsOf(week);
-    const { data, latestInventoryDate } = await loadEngineData(db, asOf, { includeOpenPos: false });
+    const { data, latestInventoryDate } = await loadEngineData(db, asOf, { includeOpenPos: false, includeDistributors: config.enable_distributor_exceptions });
     const result = evaluateAll(data, config);
     for (const l of result.lines) lines.push({ week, skuId: l.skuId, systemAction: l.action, systemQty: l.qty });
     for (const e of result.exceptions) lines.push({ week, skuId: e.skuId, systemAction: `exception:${e.type}`, systemQty: null });

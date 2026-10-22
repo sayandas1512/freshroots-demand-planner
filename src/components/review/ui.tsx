@@ -53,6 +53,7 @@ export const EXCEPTION_LABEL: Record<ExceptionType, string> = {
   unknown_sku: "Unknown SKU",
   conflicting_signals: "Conflicting signals",
   processing_error: "Processing error",
+  distributor_shift: "Distributor shift",
 };
 
 export const EXCEPTION_HELP: Record<ExceptionType, string> = {
@@ -64,6 +65,7 @@ export const EXCEPTION_HELP: Record<ExceptionType, string> = {
   unknown_sku: "Rows exist in sales or stock but the SKU is not in the master.",
   conflicting_signals: "High demand and overstock at the same time. The rules cannot judge both.",
   processing_error: "The engine could not evaluate this SKU.",
+  distributor_shift: "A distributor's share of this SKU has dropped sharply. Unusual distributor behaviour is a judgment call.",
 };
 
 export function Chip({ className, Icon, children, title }: { className: string; Icon?: (p: IconProps) => React.ReactElement; children: React.ReactNode; title?: string }) {

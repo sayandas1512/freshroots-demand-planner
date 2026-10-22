@@ -9,7 +9,8 @@ export type ExceptionType =
   | "anomalous_jump"
   | "unknown_sku"
   | "conflicting_signals"
-  | "processing_error";
+  | "processing_error"
+  | "distributor_shift";
 
 export interface SkuMaster {
   skuId: string;
@@ -19,6 +20,9 @@ export interface SkuMaster {
   standardReorderQty: number;
   unit: string;
   distributorId: string;
+  /** Optional master data. Null when the file did not provide it. */
+  leadTimeWeeks?: number | null;
+  moq?: number | null;
 }
 
 /** Everything the engine reads. Built by the data loader (live run) or the backtest (replay). */
@@ -33,6 +37,8 @@ export interface EngineData {
   openPo: ReadonlyMap<string, number>;
   /** 'YYYY-MM' months flagged as festival months. */
   festivalMonths: ReadonlySet<string>;
+  /** Optional: sku -> distributor -> week -> units. Present only when distributor exceptions are on. */
+  distributorSales?: ReadonlyMap<string, ReadonlyMap<string, ReadonlyMap<string, number>>>;
 }
 
 export interface LineMetrics {
@@ -60,7 +66,13 @@ export interface LineMetrics {
   highDemandMultiplier: number;
   includeOpenPoInStock: boolean;
   urgent: boolean;
+  leadTimeWeeks: number | null;
+  moq: number | null;
+  /** Informational only. They never change the action or the quantity. */
+  infoFlags: InfoFlag[];
 }
+
+export type InfoFlag = "LEAD_TIME_BREACH" | "BELOW_MOQ";
 
 export interface RecommendationLine {
   skuId: string;

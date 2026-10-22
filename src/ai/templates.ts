@@ -56,6 +56,7 @@ const EXCEPTION_LABEL: Record<string, string> = {
   unknown_sku: "unknown SKU",
   conflicting_signals: "conflicting signals",
   processing_error: "processing error",
+  distributor_shift: "distributor shift",
 };
 
 function plural(n: number, one: string, many: string): string {

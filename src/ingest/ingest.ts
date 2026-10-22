@@ -1,6 +1,7 @@
-import { count, sql } from "drizzle-orm";
+import { count, inArray, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/client";
-import { distributors, festivalMonths, ingestReports, inventorySnapshots, openPos, skus, weeklySales } from "@/db/schema";
+import { distributors, festivalMonths, ingestReports, inventorySnapshots, openPos, skus, weeklySales, weeklySalesByDistributor } from "@/db/schema";
+import { getActiveConfig } from "@/run/config-store";
 import { LIMITS, type IngestKind } from "./mapping";
 import { parseCsv, type RowIssue } from "./parse";
 import type { RowFor } from "./schemas";
@@ -33,7 +34,10 @@ const wasInserted = sql<boolean>`(xmax = 0)`;
 interface Applied {
   inserted: number;
   replaced: number;
+  warnings?: RowIssue[];
 }
+
+type Parsed<K extends IngestKind> = { row: number; value: RowFor<K> }[];
 
 function tally(rows: { inserted: boolean }[]): Applied {
   const inserted = rows.filter((r) => r.inserted).length;
@@ -57,7 +61,7 @@ async function upsertDistributors(tx: Tx, rows: RowFor<"distributors">[]): Promi
   return tally(out);
 }
 
-async function upsertSkus(tx: Tx, rows: RowFor<"sku_master">[]): Promise<Applied> {
+async function upsertSkus(tx: Tx, rows: RowFor<"sku_master">[], present: ReadonlySet<string>): Promise<Applied> {
   const out: { inserted: boolean }[] = [];
   for (const part of chunks(rows)) {
     out.push(
@@ -73,6 +77,9 @@ async function upsertSkus(tx: Tx, rows: RowFor<"sku_master">[]): Promise<Applied
             standardReorderQty: sql`excluded.standard_reorder_qty`,
             unit: sql`excluded.unit`,
             distributorId: sql`excluded.distributor_id`,
+            // Optional columns that were not in the file keep their stored values.
+            leadTimeWeeks: present.has("leadTimeWeeks") ? sql`excluded.lead_time_weeks` : skus.leadTimeWeeks,
+            moq: present.has("moq") ? sql`excluded.moq` : skus.moq,
           },
         })
         .returning({ inserted: wasInserted })),
@@ -95,18 +102,62 @@ async function upsertFestival(tx: Tx, rows: RowFor<"festival_calendar">[]): Prom
   return tally(out);
 }
 
-async function upsertSales(tx: Tx, rows: RowFor<"sales">[]): Promise<Applied> {
+/**
+ * Sales rows with a Distributor_ID are distributor-level figures; the SKU aggregate in weekly_sales is derived from them.
+ * Rows without one are SKU aggregates. If an aggregate arrives for a SKU and week that already has distributor rows,
+ * the distributor rows win and any difference is reported so someone can reconcile it.
+ */
+async function upsertSales(tx: Tx, rows: Parsed<"sales">): Promise<Applied> {
+  const warnings: RowIssue[] = [];
   const out: { inserted: boolean }[] = [];
-  for (const part of chunks(rows)) {
+  const byDistributor = rows.filter((r) => r.value.distributorId !== null);
+  const aggregates = rows.filter((r) => r.value.distributorId === null);
+
+  for (const part of chunks(byDistributor)) {
     out.push(
       ...(await tx
-        .insert(weeklySales)
-        .values(part)
-        .onConflictDoUpdate({ target: [weeklySales.skuId, weeklySales.week], set: { units: sql`excluded.units` } })
+        .insert(weeklySalesByDistributor)
+        .values(part.map((r) => ({ skuId: r.value.skuId, distributorId: r.value.distributorId as string, week: r.value.week, units: r.value.units })))
+        .onConflictDoUpdate({ target: [weeklySalesByDistributor.skuId, weeklySalesByDistributor.distributorId, weeklySalesByDistributor.week], set: { units: sql`excluded.units` } })
         .returning({ inserted: wasInserted })),
     );
   }
-  return tally(out);
+
+  const skuIds = [...new Set(rows.map((r) => r.value.skuId))];
+  const sums = new Map<string, number>();
+  for (const part of chunks(skuIds)) {
+    for (const r of await tx.select().from(weeklySalesByDistributor).where(inArray(weeklySalesByDistributor.skuId, part))) {
+      const key = `${r.skuId}|${r.week}`;
+      sums.set(key, (sums.get(key) ?? 0) + r.units);
+    }
+  }
+
+  const derived = new Map<string, { skuId: string; week: string; units: number }>();
+  for (const r of byDistributor) {
+    const key = `${r.value.skuId}|${r.value.week}`;
+    derived.set(key, { skuId: r.value.skuId, week: r.value.week, units: sums.get(key) as number });
+  }
+  const direct: Parsed<"sales"> = [];
+  for (const r of aggregates) {
+    const key = `${r.value.skuId}|${r.value.week}`;
+    const fromDistributors = sums.get(key);
+    if (fromDistributors === undefined) direct.push(r);
+    else if (fromDistributors !== r.value.units) {
+      warnings.push({ row: r.row, reason: `Aggregate ${r.value.units} for ${r.value.skuId} in ${r.value.week} differs from the sum of its distributor rows (${fromDistributors}). The distributor rows were kept.`, raw: { SKU_ID: r.value.skuId, Week: r.value.week } });
+    }
+  }
+
+  const aggregateRows = [...derived.values(), ...direct.map((r) => ({ skuId: r.value.skuId, week: r.value.week, units: r.value.units }))];
+  for (const part of chunks(aggregateRows)) {
+    const done = await tx
+      .insert(weeklySales)
+      .values(part)
+      .onConflictDoUpdate({ target: [weeklySales.skuId, weeklySales.week], set: { units: sql`excluded.units` } })
+      .returning({ inserted: wasInserted });
+    // Only directly uploaded aggregates count towards the report; derived ones are bookkeeping.
+    if (byDistributor.length === 0) out.push(...done);
+  }
+  return { ...tally(out), warnings };
 }
 
 async function upsertInventory(tx: Tx, rows: RowFor<"inventory">[]): Promise<Applied> {
@@ -134,16 +185,17 @@ async function replaceOpenPos(tx: Tx, rows: RowFor<"open_pos">[]): Promise<Appli
   return { inserted: rows.length, replaced: previous?.n ?? 0 };
 }
 
-async function apply<K extends IngestKind>(tx: Tx, kind: K, rows: RowFor<K>[]): Promise<Applied> {
+async function apply<K extends IngestKind>(tx: Tx, kind: K, parsed: Parsed<K>, present: ReadonlySet<string>): Promise<Applied> {
+  const rows = parsed.map((r) => r.value);
   switch (kind) {
     case "distributors":
       return upsertDistributors(tx, rows as RowFor<"distributors">[]);
     case "sku_master":
-      return upsertSkus(tx, rows as RowFor<"sku_master">[]);
+      return upsertSkus(tx, rows as RowFor<"sku_master">[], present);
     case "festival_calendar":
       return upsertFestival(tx, rows as RowFor<"festival_calendar">[]);
     case "sales":
-      return upsertSales(tx, rows as RowFor<"sales">[]);
+      return upsertSales(tx, parsed as unknown as Parsed<"sales">);
     case "inventory":
       return upsertInventory(tx, rows as RowFor<"inventory">[]);
     case "open_pos":
@@ -178,7 +230,17 @@ export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text
     }
   }
 
-  const applied = await db.transaction((tx) => apply(tx, kind, parsed.rows.map((r) => r.value)));
+  if (kind === "distributors") {
+    const expected = (await getActiveConfig(db)).config.expected_regions.map((r) => r.toLowerCase());
+    for (const { row, value } of parsed.rows as Parsed<"distributors">) {
+      const region = value.region.toLowerCase();
+      if (expected.length > 0 && !expected.some((e) => region === e || region.includes(e))) {
+        warnings.push({ row, reason: `Distributor ${value.distributorId} is in "${value.region}", outside the expected regions (${expected.join(", ")}). Check the extract.`, raw: { Distributor_ID: value.distributorId, Region: value.region } });
+      }
+    }
+  }
+
+  const applied = await db.transaction((tx) => apply(tx, kind, parsed.rows, new Set(parsed.columnsPresent)));
 
   const report: IngestReport = {
     ...base,
@@ -188,7 +250,7 @@ export async function ingestCsv(db: Db, kind: IngestKind, fileName: string, text
     rejected: parsed.rejects.length,
     rejects: parsed.rejects.slice(0, LIMITS.maxRejectsReported),
     rejectsTruncated: parsed.rejects.length > LIMITS.maxRejectsReported,
-    warnings: warnings.slice(0, LIMITS.maxRejectsReported),
+    warnings: [...warnings, ...(applied.warnings ?? [])].slice(0, LIMITS.maxRejectsReported),
   };
 
   await db.insert(ingestReports).values({

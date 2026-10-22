@@ -18,7 +18,7 @@ export async function previewImpact(db: Db, draft: RuleConfig): Promise<ImpactPr
   const active = await getActiveConfig(db);
   const last = await latestRun(db);
   const asOf = last?.asOf ?? todayIst();
-  const { data } = await loadEngineData(db, asOf);
+  const { data } = await loadEngineData(db, asOf, { includeOpenPos: true, includeDistributors: draft.enable_distributor_exceptions || active.config.enable_distributor_exceptions });
   const before = evaluateAll(data, active.config);
   const after = evaluateAll(data, draft);
   return { asOf, totalSkus: data.skus.length, changed: compareResults(before, after), activeVersion: active.version };

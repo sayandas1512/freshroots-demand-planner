@@ -26,6 +26,27 @@ const wholeNumber = (label: string, min: number) =>
     .transform((v) => Number(v))
     .refine((n) => Number.isSafeInteger(n) && n >= min && n <= 2_000_000_000, `${label} must be between ${min} and 2,000,000,000`);
 
+const optionalDecimal = (label: string, max: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : v))
+    .pipe(
+      z
+        .string()
+        .regex(/^\d+(\.\d+)?$/, `${label} must be a number`)
+        .transform(Number)
+        .refine((n) => n > 0 && n <= max, `${label} must be above 0 and at most ${max}`)
+        .nullable(),
+    );
+
+const optionalWhole = (label: string, min: number) =>
+  z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : v))
+    .pipe(wholeNumber(label, min).nullable());
+
 const isoDate = z
   .string()
   .trim()
@@ -68,6 +89,8 @@ export const rowSchemas = {
     standardReorderQty: wholeNumber("Standard_Reorder_Qty", 1),
     unit: text(20),
     distributorId: id,
+    leadTimeWeeks: optionalDecimal("Lead_Time_Weeks", 104),
+    moq: optionalWhole("MOQ", 1),
   }),
   festival_calendar: z
     .object({
@@ -81,6 +104,12 @@ export const rowSchemas = {
     skuId: id,
     week: z.string().trim().regex(WEEK_PATTERN, "must be an ISO week like 2026-W42"),
     units: wholeNumber("Units_Sold", 0),
+    /** Optional. When present the row is a distributor-level figure and the SKU aggregate is derived from it. */
+    distributorId: z
+      .string()
+      .trim()
+      .transform((v) => (v === "" ? null : v))
+      .pipe(id.nullable()),
   }),
   inventory: z.object({
     skuId: id,
@@ -116,7 +145,7 @@ export const rowKeys: { [K in ParseKind]: (row: RowFor<K>) => string } = {
   distributors: (r) => r.distributorId,
   sku_master: (r) => r.skuId,
   festival_calendar: (r) => r.yearMonth,
-  sales: (r) => `${r.skuId}|${r.week}`,
+  sales: (r) => `${r.skuId}|${r.week}|${r.distributorId ?? ""}`,
   inventory: (r) => `${r.skuId}|${r.location}|${r.asOfDate}`,
   outcomes_weekly: (r) => r.week,
   orders: (r) => `${r.skuId}|${r.week}`,

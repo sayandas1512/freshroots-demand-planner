@@ -29,6 +29,13 @@
       "when": 1792665858819,
       "tag": "0003_kill_outcomes_golive",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792666454577,
+      "tag": "0004_optional_data",
+      "breakpoints": true
     }
   ]
 }

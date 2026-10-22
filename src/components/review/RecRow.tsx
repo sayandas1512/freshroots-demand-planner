@@ -125,12 +125,18 @@ function RecRowImpl(props: Props) {
 
       <div role="cell" className="cell cell-flags">
         {row.flags.length === 0 ? <Chip className="chip-hold" Icon={IconHold}>Hold</Chip> : row.flags.map((f) => <Chip key={f} className={FLAG_META[f].chip} Icon={FLAG_META[f].Icon}>{FLAG_META[f].label}</Chip>)}
+        {(m.infoFlags ?? []).map((f) => (
+          <Chip key={f} className="chip-plain" title={f === "LEAD_TIME_BREACH" ? "Cover is shorter than the lead time: this SKU will run out before an order can arrive. Informational only." : "The recommended quantity is below the minimum order quantity. Informational only."}>
+            {f === "LEAD_TIME_BREACH" ? "Lead time (info)" : "Below MOQ (info)"}
+          </Chip>
+        ))}
       </div>
 
       <div role="cell" className="cell cell-cover">
         <CoverGauge cover={m.coverWeeks} min={m.coverMin} max={m.coverMax} perishable={m.perishable} animateKey={`${props.runId}:${row.id}`} mountAnimate={virtual} scroller={props.scroller} />
         <span className="cover-sub num">
           stock {int(m.stockOnHand)} · open PO {int(m.openPoQty)}{m.openPoQty > 0 ? (m.includeOpenPoInStock ? " (counted)" : " (not counted)") : ""}
+          {m.leadTimeWeeks != null ? ` · lead time ${m.leadTimeWeeks} wk` : ""}{m.moq != null ? ` · MOQ ${int(m.moq)}` : ""}
         </span>
       </div>
 

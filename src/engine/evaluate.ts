@@ -1,6 +1,7 @@
 import type { RuleConfig } from "./config";
+import { detectDistributorShift } from "./distributors";
 import { gt, lt, mean } from "./num";
-import type { Action, EngineData, EvaluationResult, ExceptionItem, Flag, LineMetrics, RecommendationLine, SkuMaster, SkuOutcome } from "./types";
+import type { Action, EngineData, EvaluationResult, ExceptionItem, Flag, InfoFlag, LineMetrics, RecommendationLine, SkuMaster, SkuOutcome } from "./types";
 import { lastCompleteWeeks, yearMonthOf } from "./weeks";
 
 /**
@@ -22,6 +23,8 @@ export interface SkuContext {
   sales: ReadonlyMap<string, number> | undefined;
   stock: number | undefined;
   openPo: number;
+  /** distributor -> week -> units, when distributor data is available and the rule is on. */
+  distributorSales?: ReadonlyMap<string, ReadonlyMap<string, number>>;
 }
 
 const FLAG_ORDER: Flag[] = ["STOCKOUT_RISK", "HIGH_DEMAND", "OVERSTOCK_RISK"];
@@ -63,6 +66,16 @@ export function evaluateSku(sku: SkuMaster, ctx: SkuContext): SkuOutcome {
       "anomalous_jump",
       `Latest week sold ${latest} units against a ${cfg.anomaly_lookback_weeks}-week mean of ${fmt(prevMean)} (more than ${fmt(cfg.anomaly_factor)}x apart).`,
     );
+  }
+
+  if (cfg.enable_distributor_exceptions && ctx.distributorSales) {
+    const shifts = detectDistributorShift(ctx.distributorSales, weeks, cfg.recent_weeks, cfg.distributor_shift_pct);
+    if (shifts.length > 0) {
+      const text = shifts
+        .map((s) => `Distributor ${s.distributorId} supplied ${(s.baselineShare * 100).toFixed(1)}% of this SKU over the last ${cfg.baseline_weeks} weeks but ${(s.recentShare * 100).toFixed(1)}% over the last ${cfg.recent_weeks} (${s.dropPct.toFixed(0)}% lower)`)
+        .join("; ");
+      return exception(sku, "distributor_shift", `${text}. Unusual distributor behaviour is a judgment call, so no recommendation was made.`);
+    }
   }
 
   const avgRecent = mean(present.slice(-cfg.recent_weeks));
@@ -121,6 +134,9 @@ export function evaluateSku(sku: SkuMaster, ctx: SkuContext): SkuOutcome {
     highDemandMultiplier: cfg.high_demand_multiplier,
     includeOpenPoInStock: cfg.include_open_po_in_stock,
     urgent: false,
+    leadTimeWeeks: sku.leadTimeWeeks ?? null,
+    moq: sku.moq ?? null,
+    infoFlags: [],
   };
 
   if (over && high) {
@@ -154,6 +170,11 @@ export function evaluateSku(sku: SkuMaster, ctx: SkuContext): SkuOutcome {
     ruleFired = "hold";
   }
 
+  const info: InfoFlag[] = [];
+  if (cfg.enable_lead_time_flag && metrics.leadTimeWeeks !== null && lt(cover, metrics.leadTimeWeeks)) info.push("LEAD_TIME_BREACH");
+  if (cfg.enable_moq_flag && metrics.moq !== null && qty !== null && qty < metrics.moq) info.push("BELOW_MOQ");
+  metrics.infoFlags = info;
+
   const line: RecommendationLine = { skuId: sku.skuId, action, flags, ruleFired, qty, metrics };
   return { kind: "line", line };
 }
@@ -174,6 +195,7 @@ export function evaluateAll(data: EngineData, config: RuleConfig): EvaluationRes
         sales: data.sales.get(sku.skuId),
         stock: data.stock.get(sku.skuId),
         openPo: data.openPo.get(sku.skuId) ?? 0,
+        distributorSales: data.distributorSales?.get(sku.skuId),
       });
       if (outcome.kind === "line") lines.push(outcome.line);
       else exceptions.push(outcome.exception);

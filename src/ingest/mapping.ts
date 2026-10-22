@@ -39,8 +39,10 @@ export const FILE_MAPPINGS: Record<ParseKind, FileMapping> = {
       standardReorderQty: "Standard_Reorder_Qty",
       unit: "Unit_of_Measure",
       distributorId: "Distributor_ID",
+      leadTimeWeeks: "Lead_Time_Weeks",
+      moq: "MOQ",
     },
-    optional: [],
+    optional: ["leadTimeWeeks", "moq"],
     loadOrder: 2,
   },
   festival_calendar: {
@@ -53,8 +55,8 @@ export const FILE_MAPPINGS: Record<ParseKind, FileMapping> = {
   sales: {
     label: "Weekly sales",
     source: "SAP",
-    columns: { skuId: "SKU_ID", week: "Week", units: "Units_Sold" },
-    optional: [],
+    columns: { skuId: "SKU_ID", week: "Week", units: "Units_Sold", distributorId: "Distributor_ID" },
+    optional: ["distributorId"],
     loadOrder: 4,
   },
   inventory: {

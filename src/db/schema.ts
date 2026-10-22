@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
+  doublePrecision,
   index,
   integer,
   jsonb,
@@ -34,6 +35,7 @@ export const exceptionTypeEnum = pgEnum("exception_type", [
   "unknown_sku",
   "conflicting_signals",
   "processing_error",
+  "distributor_shift",
 ]);
 export const exceptionStatusEnum = pgEnum("exception_status", ["open", "handled"]);
 
@@ -69,6 +71,10 @@ export const skus = pgTable(
     perishability: perishabilityEnum("perishability").notNull(),
     standardReorderQty: integer("standard_reorder_qty").notNull(),
     unit: text("unit").notNull(),
+    /** Optional. Weeks between ordering and arrival. */
+    leadTimeWeeks: doublePrecision("lead_time_weeks"),
+    /** Optional minimum order quantity. */
+    moq: integer("moq"),
     // No FK: ingestion order is not guaranteed and a missing distributor must not block the SKU master.
     distributorId: text("distributor_id").notNull(),
   },
@@ -83,6 +89,18 @@ export const weeklySales = pgTable(
     units: integer("units").notNull(),
   },
   (t) => [primaryKey({ columns: [t.skuId, t.week] }), index("weekly_sales_week_idx").on(t.week)],
+);
+
+/** Optional distributor-level sales. `weekly_sales` stays the SKU aggregate and is derived from these rows when they exist. */
+export const weeklySalesByDistributor = pgTable(
+  "weekly_sales_by_distributor",
+  {
+    skuId: text("sku_id").notNull(),
+    distributorId: text("distributor_id").notNull(),
+    week: text("week").notNull(),
+    units: integer("units").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.skuId, t.distributorId, t.week] }), index("wsd_week_idx").on(t.week)],
 );
 
 export const inventorySnapshots = pgTable(
