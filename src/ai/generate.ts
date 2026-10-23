@@ -1,10 +1,11 @@
+import { log } from "@/lib/log";
 import type { LlmStatus } from "./status";
 import { validateHeadline, validateReason } from "./guardrails";
 import { templateHeadline, templateReason } from "./templates";
 import type { ExplainFacts, HeadlineFacts, LlmProvider, LlmUsage } from "./types";
 
 export const BATCH_SIZE = 25;
-export const CALL_TIMEOUT_MS = 10_000;
+export const CALL_TIMEOUT_MS = 30_000; // Gemini Flash takes 7 to 15 s for a 25-line batch
 export const MAX_ATTEMPTS = 2; // first try plus one retry
 
 export interface Explanation {
@@ -39,8 +40,9 @@ async function attempt<T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: nu
     counter.calls += 1;
     try {
       return await fn(controller.signal);
-    } catch {
+    } catch (err) {
       // Network error, timeout, API error or invalid JSON: retry once, then give up and use templates.
+      log("warn", "llm.call_failed", { attempt: i + 1, error: err instanceof Error ? err.message.slice(0, 300) : "unknown" });
     } finally {
       clearTimeout(timer);
     }

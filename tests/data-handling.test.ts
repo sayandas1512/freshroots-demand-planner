@@ -97,7 +97,7 @@ describe("provider selection", () => {
     expect(configuredProvider()).toBe("anthropic");
     vi.stubEnv("GEMINI_API_KEY", "g");
     expect(configuredProvider()).toBe("gemini");
-    expect(createProvider()?.model).toBe("gemini-2.5-flash");
+    expect(createProvider()?.model).toBe("gemini-3.8-flash");
     vi.stubEnv("LLM_PROVIDER", "anthropic");
     expect(createProvider()?.model).toBe("claude-haiku-4-5-20251001");
     vi.stubEnv("LLM_MODEL", "custom-model");

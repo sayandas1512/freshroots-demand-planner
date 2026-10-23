@@ -29,7 +29,7 @@ export class GeminiProvider implements LlmProvider {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: maxTokens, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0, maxOutputTokens: maxTokens, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
       }),
       signal,
     });
