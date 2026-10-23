@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, bearerMatches, verifySessionValue } from "@/auth/session";
 
 // The Zoho webhook cannot sign in; it is protected by a shared secret checked inside the route.
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/zoho/webhook"];
+const PUBLIC_PATHS = ["/login", "/login/verify", "/api/auth/request-link", "/api/auth/verify", "/api/zoho/webhook"];
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl;

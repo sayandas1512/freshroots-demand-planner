@@ -23,7 +23,7 @@ let sponsorId: string;
 beforeEach(async () => {
   ({ db, close } = await createTestDb());
   await loadFixtures(db);
-  const [u] = await db.insert(users).values({ email: "deepa@x.test", name: "Deepa", role: "sponsor", passwordHash: "x" }).returning();
+  const [u] = await db.insert(users).values({ email: "deepa@x.test", name: "Deepa", role: "sponsor" }).returning();
   sponsorId = u!.id;
 });
 afterEach(async () => close());

@@ -62,11 +62,11 @@ The kill check runs after every completed run and on the 1st of each month. Thre
 npm install
 cp .env.example .env.local      # set SESSION_SECRET, CRON_SECRET and SEED_USERS at least
 npm run seed                     # loads /fixtures through the normal ingestion layer
-npm run seed:users               # creates the named users from SEED_USERS
+npm run seed:users               # creates the named users from SEED_USERS (no passwords)
 npm run dev                      # http://localhost:3000
 ```
 
-With `DATABASE_URL` empty the app uses an embedded Postgres (PGlite) in `.data/`, so no database setup is needed. Sign in with a seeded user, set the run date to `2026-10-19` (the date the sample data is built for) and press **Run now**.
+With `DATABASE_URL` empty the app uses an embedded Postgres (PGlite) in `.data/`, so no database setup is needed. Sign in with a seeded user's email (put `AUTH_DEV_LINKS=1` in `.env.local` so the link is shown on screen instead of emailed), set the run date to `2026-10-19` (the date the sample data is built for) and press **Run now**.
 
 From the command line:
 
@@ -85,12 +85,14 @@ npm run build                                                             # prod
 |---|---|
 | `DATABASE_URL` | Neon Postgres connection string. Empty means the embedded dev database. |
 | `SESSION_SECRET` | Keys the signed session cookie (16+ characters). Rotate to sign everyone out. |
-| `SEED_USERS` | JSON array of `{email, name, role, password}`, used by `npm run seed:users`. |
+| `SEED_USERS` | JSON array of `{email, name, role}`, used by `npm run seed:users`. There are no passwords. |
+| `APP_URL` | Public address of the app, used in sign-in links. |
+| `AUTH_DEV_LINKS` | `1` shows the sign-in link on screen instead of emailing it, for local runs and tests. Ignored on Vercel production. |
 | `CRON_SECRET` | Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on cron calls. Also used to chain run steps and accepted by API routes for scripts and uptime monitors. |
 | `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | Enable LLM wording. All empty means template wording only (`llm_status = skipped`). |
 | `LLM_PROVIDER`, `LLM_MODEL` | `gemini` or `anthropic` (default: whichever key is set, Gemini first) and the model id (defaults per provider; verify with the provider). |
 | `LLM_PRICE_IN_PER_MTOK`, `LLM_PRICE_OUT_PER_MTOK` | USD per million tokens, used only to log run cost. |
-| `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | Optional alert emails (kill switch, failed or degraded runs). Without them alerts are logged only. |
+| `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | Sends the sign-in links (required in production) and the alert emails (kill switch, failed or degraded runs). Without a key alerts are only logged and nobody can sign in on production. |
 | `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_ORG_ID`, `ZOHO_DC` | Optional Zoho Inventory connector (OAuth refresh token). See [`docs/ZOHO.md`](docs/ZOHO.md). `ZOHO_OPEN_PO_STATUSES`, `ZOHO_DAILY_CALL_BUDGET` and `ZOHO_WEBHOOK_SECRET` tune it. |
 | `TZ` | `Asia/Kolkata`. |
 | `PGLITE_DIR` | Optional folder for the embedded database (default `.data/pglite`). |
@@ -129,7 +131,7 @@ See [`docs/RUNBOOK.md`](docs/RUNBOOK.md): reading the run strip and log, every f
 
 ## Security notes
 
-- Named users with scrypt-hashed passwords, signed `httpOnly` `SameSite=Lax` session cookie (`Secure` in production), role checks on every mutating route. The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
+- Named users who sign in with a one-time emailed link (15 minutes, single use, only a hash stored, confirmed by a POST so email scanners cannot use it up), signed `httpOnly` `SameSite=Lax` session cookie (`Secure` in production), role checks on every mutating route. The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
 - All external input is validated with Zod: every CSV row, every request body, every route parameter (UUIDs), and the `next` redirect on login.
 - CSV content is untrusted: size, row and field limits; formula characters rejected in identifiers; every CSV we write neutralises cells starting with `=`, `+`, `-` or `@`. CSV text is only ever rendered by React (escaped).
 - No API key or full prompt is logged (JSON logs redact secret-like fields). The LLM receives only an allow-listed payload of computed numbers, SKU names and categories: never user notes, distributor names or raw tables (`src/ai/payload.ts`, tested).

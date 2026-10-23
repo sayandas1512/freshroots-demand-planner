@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendAlertEmail } from "@/lib/email";
+import { sendAlertEmail, sendEmail } from "@/lib/email";
 import { logLine, redact } from "@/lib/log";
 
 afterEach(() => {
@@ -27,6 +27,17 @@ describe("alert email (Resend)", () => {
     vi.stubEnv("ALERT_EMAIL", "a@x.test");
     expect(await sendAlertEmail({ subject: "s", text: "t" }, (async () => new Response("no", { status: 500 })) as unknown as typeof fetch)).toBe(false);
     expect(await sendAlertEmail({ subject: "s", text: "t" }, (async () => { throw new Error("offline"); }) as unknown as typeof fetch)).toBe(false);
+  });
+});
+
+describe("sendEmail (sign-in links)", () => {
+  it("posts to the given recipients and reports success, and never throws", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    const ok = vi.fn(async () => new Response("{}", { status: 200 }));
+    expect(await sendEmail(["raghav@x.test"], { subject: "Link", text: "body" }, ok as unknown as typeof fetch)).toBe(true);
+    expect(JSON.parse((ok.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toMatchObject({ to: ["raghav@x.test"], subject: "Link" });
+    expect(await sendEmail([], { subject: "s", text: "t" }, ok as unknown as typeof fetch)).toBe(false);
+    expect(await sendEmail(["a@x.test"], { subject: "s", text: "t" }, (async () => { throw new Error("offline"); }) as unknown as typeof fetch)).toBe(false);
   });
 });
 

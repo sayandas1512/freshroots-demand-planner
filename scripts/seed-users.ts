@@ -4,7 +4,7 @@ import { seedUsers } from "../src/auth/users";
 
 const raw = process.env.SEED_USERS;
 if (!raw) {
-  console.error('SEED_USERS is not set. Example: SEED_USERS=\'[{"email":"raghav@freshroots.example","name":"Raghav","role":"planner","password":"a-long-password"}]\'');
+  console.error('SEED_USERS is not set. Example: SEED_USERS=\'[{"email":"raghav@freshroots.example","name":"Raghav","role":"planner"}]\'');
   process.exit(1);
 }
 const result = await seedUsers(await getDb(), raw);

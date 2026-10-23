@@ -90,9 +90,10 @@ Health > Go-live checklist: each item is ticked by a named user. When all are ti
 
 ## 8. Users and secrets
 
-- **Add or change a user:** put them in `SEED_USERS` (JSON, see `.env.example`) and run `npm run seed:users` against the production database (`DATABASE_URL=... npm run seed:users`). Re-running with the same email updates name, role and password. Roles: planner (Raghav), sponsor (Deepa), data (Priya), admin (IT).
+- **Sign-in:** there are no passwords. A person enters their email and gets a one-time link (valid 15 minutes, works once; opening it shows a Sign in button). Links need `RESEND_API_KEY`, `ALERT_FROM` and `APP_URL`. **If email is down or a link does not arrive:** check the Resend dashboard and the function logs for "sign-in link could not be emailed", or IT can print a one-time link: `DATABASE_URL=... npm run login-link -- --email raghav@freshroots.example --url https://<app>`.
+- **Add or change a user:** put them in `SEED_USERS` (JSON, see `.env.example`) and run `npm run seed:users` against the production database (`DATABASE_URL=... npm run seed:users`). Re-running with the same email updates name and role. Roles: planner (Raghav), sponsor (Deepa), data (Priya), admin (IT).
 - **Remove a user:** in the Neon SQL editor, `update users set active = false where email = '...';`.
-- **Rotate secrets:** change in Vercel and redeploy. `SESSION_SECRET` signs everyone out. `CRON_SECRET` must match what Vercel Cron sends (Vercel uses the env var automatically). API keys (`GEMINI_API_KEY`, `RESEND_API_KEY`) take effect on the next run.
+- **Rotate secrets:** change in Vercel and redeploy. `SESSION_SECRET` signs everyone out. A person who leaves is deactivated (below), which also voids any link already sent. `CRON_SECRET` must match what Vercel Cron sends (Vercel uses the env var automatically). API keys (`GEMINI_API_KEY`, `RESEND_API_KEY`) take effect on the next run.
 - Never paste secrets into tickets or chat. They are not logged by the app.
 
 ## 9. Data and hosting

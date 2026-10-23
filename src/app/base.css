@@ -119,3 +119,5 @@ table.data td.num { font-family: var(--font-mono); font-variant-numeric: tabular
 .kill-banner { margin: var(--s-3) var(--s-5) 0; }
 .stop-control { position: relative; }
 .stop-form { position: absolute; right: 0; top: 36px; width: 340px; z-index: 40; display: grid; gap: var(--s-2); box-shadow: var(--shadow); }
+
+.login-sent { display: grid; gap: var(--s-3); margin-top: var(--s-4); }

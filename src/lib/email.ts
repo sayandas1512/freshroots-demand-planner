@@ -6,30 +6,35 @@ export interface Email {
 }
 
 /**
- * Alert email through Resend's REST API. Best effort: when keys are missing or the call fails it logs and returns
- * false, so the caller keeps its on-screen banner and nothing else changes.
+ * Send through Resend's REST API. Best effort: when keys are missing or the call fails it logs and returns false, so the
+ * caller can fall back (alerts keep their on-screen banner). Recipients are never logged.
  */
-export async function sendAlertEmail(email: Email, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+export async function sendEmail(to: string[], email: Email, fetchImpl: typeof fetch = fetch): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
-  const to = process.env.ALERT_EMAIL;
-  if (!key || !to) {
-    log("warn", "alert email not sent: RESEND_API_KEY or ALERT_EMAIL is not set", { subject: email.subject });
+  if (!key || to.length === 0) {
+    log("warn", "email not sent: RESEND_API_KEY or recipient missing", { subject: email.subject });
     return false;
   }
   try {
     const res = await fetchImpl("https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: process.env.ALERT_FROM ?? "Freshroots Planner <onboarding@resend.dev>", to: to.split(",").map((s) => s.trim()), subject: email.subject, text: email.text }),
+      body: JSON.stringify({ from: process.env.ALERT_FROM ?? "Freshroots Planner <onboarding@resend.dev>", to, subject: email.subject, text: email.text }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      log("error", "alert email failed", { status: res.status, subject: email.subject });
+      log("error", "email failed", { status: res.status, subject: email.subject });
       return false;
     }
     return true;
   } catch (err) {
-    log("error", "alert email failed", { error: err instanceof Error ? err.message : "unknown", subject: email.subject });
+    log("error", "email failed", { error: err instanceof Error ? err.message : "unknown", subject: email.subject });
     return false;
   }
+}
+
+/** Alert email to ALERT_EMAIL (comma separated). */
+export function sendAlertEmail(email: Email, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  const to = (process.env.ALERT_EMAIL ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return sendEmail(to, email, fetchImpl);
 }

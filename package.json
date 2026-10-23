@@ -19,6 +19,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "seed": "tsx scripts/seed.ts",
     "seed:users": "tsx scripts/seed-users.ts",
+    "login-link": "tsx scripts/login-link.ts",
     "run:now": "tsx scripts/run-now.ts",
     "backtest": "tsx scripts/backtest.ts",
     "fixtures:build": "tsx scripts/build-fixtures.ts",

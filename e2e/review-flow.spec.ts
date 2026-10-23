@@ -2,22 +2,25 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
 const USERS = {
-  planner: { email: "raghav@freshroots.test", password: "planner-pass-123" },
-  sponsor: { email: "deepa@freshroots.test", password: "sponsor-pass-123" },
-  data: { email: "priya@freshroots.test", password: "data-pass-12345" },
-  admin: { email: "it@freshroots.test", password: "admin-pass-1234" },
+  planner: { email: "raghav@freshroots.test" },
+  sponsor: { email: "deepa@freshroots.test" },
+  data: { email: "priya@freshroots.test" },
+  admin: { email: "it@freshroots.test" },
 } as const;
 type UserKey = keyof typeof USERS;
 
+/** Sign in the way a person does: ask for a link, open it, confirm. (The e2e server shows the link instead of emailing it.) */
 async function login(page: Page, who: UserKey = "admin") {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByLabel("Password")).toHaveCount(0);
   await page.getByLabel("Email").fill(USERS[who].email);
-  await page.getByLabel("Password").fill(USERS[who].password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Email me a sign-in link" }).click();
+  await expect(page.getByTestId("link-sent")).toContainText("sign-in link is on its way");
+  await page.getByTestId("dev-link").click();
+  await page.getByTestId("confirm-signin").click();
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
 }
-
 
 test.describe.configure({ mode: "serial" });
 
@@ -404,6 +407,32 @@ test("400 more SKUs: the table is windowed and still navigable", async ({ page }
   expect(await page.locator('[data-testid^="row-"]').count()).toBeLessThan(40);
   await page.getByLabel("Filter by flag").selectOption("OVERSTOCK_RISK");
   await expect(page.getByTestId("virtual-scroller")).toHaveCount(0);
+});
+
+test("sign-in links: one use, no account enumeration, expired or invented links refused", async ({ page, request }) => {
+  const ask = async (email: string) => (await request.post("/api/auth/request-link", { data: { email } })).json() as Promise<{ message: string; devLink?: string }>;
+  const known = await ask("raghav@freshroots.test");
+  const unknown = await ask("stranger@example.com");
+  expect(unknown.message).toBe(known.message); // same answer either way
+  expect(unknown.devLink).toBeUndefined();
+  expect(known.devLink).toMatch(/\/login\/verify\?token=/);
+  expect((await request.post("/api/auth/request-link", { data: { email: "not an email" } })).status()).toBe(400);
+
+  // opening the link alone does not use it up (scanners); confirming does, once
+  await page.goto(known.devLink as string);
+  await expect(page.getByRole("heading", { name: "Confirm sign-in" })).toBeVisible();
+  await page.goto(known.devLink as string);
+  await page.getByTestId("confirm-signin").click();
+  await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+  await page.context().clearCookies();
+  await page.goto(known.devLink as string);
+  await page.getByTestId("confirm-signin").click();
+  await expect(page.getByText("expired or was already used")).toBeVisible();
+
+  await page.goto("/login/verify?token=" + "A".repeat(43));
+  await page.getByTestId("confirm-signin").click();
+  await expect(page.getByText("expired or was already used")).toBeVisible();
+  expect((await request.post("/api/auth/login", { data: { email: "raghav@freshroots.test", password: "x" } })).status()).toBe(401); // the old password route is gone
 });
 
 test("API access: unauthenticated is refused, secrets are required, health and kill-check answer", async ({ request }) => {

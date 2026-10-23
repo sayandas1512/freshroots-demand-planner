@@ -48,7 +48,6 @@ export const users = pgTable(
     email: text("email").notNull(),
     name: text("name").notNull(),
     role: roleEnum("role").notNull(),
-    passwordHash: text("password_hash").notNull(),
     active: boolean("active").notNull().default(true),
     createdAt: ts("created_at").notNull().defaultNow(),
   },
@@ -466,4 +465,18 @@ export const zohoPushLog = pgTable(
     userId: uuid("user_id"),
   },
   (t) => [uniqueIndex("zoho_push_reference_idx").on(t.reference), index("zoho_push_run_idx").on(t.runId)],
+);
+
+/** One-time sign-in links. Only a hash of the token is stored. */
+export const loginTokens = pgTable(
+  "login_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: ts("created_at").notNull().defaultNow(),
+    expiresAt: ts("expires_at").notNull(),
+    usedAt: ts("used_at"),
+  },
+  (t) => [uniqueIndex("login_tokens_hash_idx").on(t.tokenHash), index("login_tokens_user_idx").on(t.userId)],
 );

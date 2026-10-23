@@ -16,9 +16,11 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   ALERT_EMAIL: z.string().optional(),
   ALERT_FROM: z.string().optional(),
+  /** Public address of the app, used in sign-in links. Falls back to the request address. */
+  APP_URL: z.string().url().optional(),
   /** Keys the signed session cookie. Rotate it to sign everyone out. */
   SESSION_SECRET: z.string().min(16).optional(),
-  /** JSON array of { email, name, role, password } used only by `npm run seed:users`. */
+  /** JSON array of { email, name, role } used only by `npm run seed:users`. */
   SEED_USERS: z.string().optional(),
   TZ: z.string().default("Asia/Kolkata"),
 });
