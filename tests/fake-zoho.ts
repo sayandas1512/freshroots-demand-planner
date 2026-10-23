@@ -1,6 +1,6 @@
 /** An in-memory Zoho: OAuth token endpoint plus the Inventory endpoints the connector uses, with fault injection. */
 export interface FakeItem { item_id: string; name: string; sku?: string; purchase_rate?: number; vendor_id?: string; status?: string }
-export interface FakePo { purchaseorder_id: string; purchaseorder_number: string; status: string; vendor_id: string; total: number; delivery_date?: string; line_items: { item_id: string; quantity: number; quantity_received: number }[] }
+export interface FakePo { purchaseorder_id: string; purchaseorder_number: string; reference_number?: string; status: string; vendor_id: string; total: number; delivery_date?: string; line_items: { item_id: string; quantity: number; quantity_received: number }[] }
 
 export class FakeZoho {
   items: FakeItem[] = [];
@@ -37,7 +37,7 @@ export class FakeZoho {
 
     if (method === "GET" && path === "/items") return this.page(url, "items", this.items);
     if (method === "GET" && path === "/contacts") return this.page(url, "contacts", this.vendors);
-    if (method === "GET" && path === "/purchaseorders") return this.page(url, "purchaseorders", this.pos.map((p) => ({ purchaseorder_id: p.purchaseorder_id, purchaseorder_number: p.purchaseorder_number, status: p.status, vendor_id: p.vendor_id, total: p.total })));
+    if (method === "GET" && path === "/purchaseorders") return this.page(url, "purchaseorders", this.pos.map((p) => ({ purchaseorder_id: p.purchaseorder_id, purchaseorder_number: p.purchaseorder_number, reference_number: p.reference_number, status: p.status, vendor_id: p.vendor_id, total: p.total })));
     const detail = /^\/purchaseorders\/(.+)$/.exec(path);
     if (method === "GET" && detail) {
       const po = this.pos.find((p) => p.purchaseorder_id === detail[1]);
@@ -46,10 +46,10 @@ export class FakeZoho {
     if (method === "POST" && path === "/purchaseorders") {
       if (this.createDelayMs) await new Promise((r) => setTimeout(r, this.createDelayMs));
       if (this.networkErrorOnCreate) throw new TypeError("fetch failed");
-      const b = body as { purchaseorder_number: string; vendor_id: string; line_items: { item_id: string; quantity: number; purchase_rate: number }[] };
+      const b = body as { purchaseorder_number?: string; reference_number?: string; vendor_id: string; line_items: { item_id: string; quantity: number; purchase_rate: number }[] };
       if (!b.vendor_id || !b.line_items?.length) return json(400, { code: 4, message: "vendor_id and line_items are required" });
       this.nextId += 1;
-      const po: FakePo = { purchaseorder_id: String(this.nextId), purchaseorder_number: b.purchaseorder_number, status: "draft", vendor_id: b.vendor_id, total: b.line_items.reduce((a, l) => a + l.quantity * l.purchase_rate, 0), line_items: b.line_items.map((l) => ({ item_id: l.item_id, quantity: l.quantity, quantity_received: 0 })) };
+      const po: FakePo = { purchaseorder_id: String(this.nextId), purchaseorder_number: b.purchaseorder_number ?? `PO-${String(this.nextId).padStart(5, "0")}`, reference_number: b.reference_number, status: "draft", vendor_id: b.vendor_id, total: b.line_items.reduce((a, l) => a + l.quantity * l.purchase_rate, 0), line_items: b.line_items.map((l) => ({ item_id: l.item_id, quantity: l.quantity, quantity_received: 0 })) };
       this.pos.push(po);
       return json(201, { code: 0, message: "The purchase order has been created.", purchaseorder: { purchaseorder_id: po.purchaseorder_id, purchaseorder_number: po.purchaseorder_number, status: "draft" } });
     }

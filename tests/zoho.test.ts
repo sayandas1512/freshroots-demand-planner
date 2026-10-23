@@ -329,7 +329,7 @@ describe("sync and push against Zoho", () => {
         expect(String(b.notes)).toContain("Review before issuing");
       }
       expect(fake.calls.some((c) => /issue|approve|submit|status/i.test(c.path))).toBe(false);
-      expect(fake.pos.filter((p) => p.status === "draft" && p.purchaseorder_number.startsWith("FR-"))).toHaveLength(2);
+      expect(fake.pos.filter((p) => p.status === "draft" && (p.reference_number ?? "").startsWith("FR-"))).toHaveLength(2);
       expect((posts()[0]!.body as { line_items: unknown[] }).line_items).toEqual([{ item_id: "item-SKU001", quantity: 750, purchase_rate: 40 }]);
       const log = await db.select().from(zohoPushLog);
       expect(log.map((l) => l.status)).toEqual(["created", "created"]);
@@ -359,7 +359,7 @@ describe("sync and push against Zoho", () => {
 
       // a second run's worth: connection drops after sending
       await db.delete(zohoPushLog);
-      fake.pos = fake.pos.filter((p) => !p.purchaseorder_number.startsWith("FR-"));
+      fake.pos = fake.pos.filter((p) => !(p.reference_number ?? "").startsWith("FR-"));
       fake.networkErrorOnCreate = true;
       const lost = await pushDraftPos(db, mk(), { runId, userId: null, today: "2026-10-20" });
       expect(lost.results.map((r) => r.status)).toEqual(["unconfirmed", "unconfirmed"]);
@@ -371,10 +371,10 @@ describe("sync and push against Zoho", () => {
 
       // one of them did reach Zoho before the connection dropped: it is found, not duplicated
       const ref = referenceFor(runId, "v-1");
-      fake.pos.push({ purchaseorder_id: "found-1", purchaseorder_number: ref, status: "draft", vendor_id: "v-1", total: 1, line_items: [] });
+      fake.pos.push({ purchaseorder_id: "found-1", purchaseorder_number: "PO-00042", reference_number: ref, status: "draft", vendor_id: "v-1", total: 1, line_items: [] });
       const found = await pushDraftPos(db, mk(), { runId, userId: null, today: "2026-10-20" });
       expect(found.results.map((r) => r.status)).toEqual(["already_created", "unconfirmed"]);
-      expect(found.results[0]?.zohoPoNumber).toBe(ref);
+      expect(found.results[0]?.zohoPoNumber).toBe("PO-00042");
 
       // a person checks Zoho for the other one, sees nothing, and allows a retry
       expect(await allowRetry(db, referenceFor(runId, "v-2"))).toBe(true);

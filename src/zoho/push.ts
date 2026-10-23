@@ -100,7 +100,7 @@ export interface PushResult {
 
 const created = z.object({ purchaseorder: z.object({ purchaseorder_id: z.string().min(1), purchaseorder_number: z.string().default("") }).passthrough() });
 
-/** Look for a PO we may have created before a crash or timeout, by the number we gave it. */
+/** Look for a PO we may have created before a crash or timeout, by the reference we gave it. */
 async function findExisting(client: ZohoClient, reference: string): Promise<{ id: string; number: string } | null> {
   const body = await client.request("GET", "/purchaseorders", { query: { page: 1, per_page: 200 } });
   const list = Array.isArray(body.purchaseorders) ? (body.purchaseorders as Record<string, unknown>[]) : [];
@@ -154,7 +154,8 @@ export async function pushDraftPos(db: Db, client: ZohoClient, input: { runId: s
     try {
       const body = await client.request("POST", "/purchaseorders", {
         body: {
-          purchaseorder_number: po.reference,
+          // Zoho organisations usually auto-number POs and refuse a number we choose, so our reference goes in the
+          // reference field and Zoho assigns the PO number.
           reference_number: po.reference,
           vendor_id: po.vendorId,
           date: input.today,
