@@ -39,7 +39,7 @@ The **run strip** on Review has six boxes: Trigger, Data, Rules, Exceptions, Wor
 
 **Run failed.** Read the last note on the run (Health > Runs, or the alert email). Typical causes: database unreachable (see section 0), a data problem (look at the Data page for rejected files). Fix it and press **Run now**: a failed run is never returned as the "existing" run, so it starts fresh.
 
-**Stuck run (status running, no movement).** Runs chain themselves: each piece asks the app to do the next piece. A cron job `GET /api/cron/resume` runs every 10 minutes and resumes any run that nobody is working on. To resume by hand:
+**Stuck run (status running, no movement).** Runs chain themselves: each piece asks the app to do the next piece. A cron job `GET /api/cron/resume` (daily on the Hobby plan, every 10 minutes on Pro) resumes any run that nobody is working on. To resume by hand:
 
 ```bash
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/run/<run id>/advance

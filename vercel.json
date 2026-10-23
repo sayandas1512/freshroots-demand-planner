@@ -12,11 +12,11 @@
     },
     {
       "path": "/api/cron/resume",
-      "schedule": "*/10 * * * *"
+      "schedule": "45 2 * * *"
     },
     {
       "path": "/api/cron/zoho-sync",
-      "schedule": "*/30 * * * *"
+      "schedule": "15 2 * * *"
     }
   ]
 }
