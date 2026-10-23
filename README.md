@@ -39,7 +39,22 @@ Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, 
 
 Supporting: `src/auth` and `src/proxy.ts` (named users, roles, signed session, cron secret), `src/lib` (rate limit, dates, motion tokens, JSON logs, email), `docs/RUNBOOK.md`, `docs/GAP_REPORT.md`, `tests/` (Vitest), `e2e/` (Playwright).
 
-## Who can do what
+## For a reviewer (open access)
+
+With `OPEN_ACCESS=1` there is nothing to sign in to: open the link and you are a guest administrator, so you can run, approve, edit, reject, export, switch mode and use the kill switch. A red banner says so, and every action is logged as "Guest". Sign in from the top bar if you want to act under a named person instead.
+
+A five-minute walkthrough on a fresh database (`npm run seed`):
+
+1. **Review:** set the run date to `2026-10-19`, press **Run now**, watch the strip, read the headline and the 15 lines with the rule and numbers on each. Approve one, reject one with a reason, edit one quantity. Press `J`/`K`/`A`/`E`/`R`.
+2. **Shadow mode:** the Export button says it is blocked. That is the default until go-live.
+3. **Go live:** **Health** > Go-live checklist: tick the eight items. **Outcomes**: upload `fixtures/weekly_outcomes_sample.csv` (eight weeks). **Settings** > Operating mode > Live, add a note, save.
+4. **Export:** back on Review, **Export approved** opens the preview, then **Download CSV**: only the approved and edited lines.
+5. **Kill switch:** press **Stop** (top bar), see the banner and that Review is read-only, then **Health** > clear it with a note.
+6. **Also worth a look:** Backtest (festival uplift check), Shadow (upload a forecast CSV), Settings (change a threshold, **Preview impact**), Health (override log, kill criteria).
+
+The scheduled-job and webhook endpoints still need their secrets, even in open access.
+
+## Who can do what (when people sign in)
 
 | Role | Person | Can |
 |---|---|---|
@@ -87,6 +102,8 @@ npm run build                                                             # prod
 | `SESSION_SECRET` | Keys the signed session cookie (16+ characters). Rotate to sign everyone out. |
 | `SEED_USERS` | JSON array of `{email, name, role}`, used by `npm run seed:users`. There are no passwords. |
 | `APP_URL` | Public address of the app, used in sign-in links. |
+| `OPEN_ACCESS` | `1` = anyone with the link acts as a guest administrator, no sign-in, for demonstrations and marking. Actions are logged as "Guest". Never with real data. |
+| `PUBLIC_VIEW` | `1` = anyone with the link can only view (read-only). Ignored when `OPEN_ACCESS=1`. |
 | `AUTH_DEV_LINKS` | `1` shows the sign-in link on screen instead of emailing it, for local runs and tests. Ignored on Vercel production. |
 | `CRON_SECRET` | Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on cron calls. Also used to chain run steps and accepted by API routes for scripts and uptime monitors. |
 | `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | Enable LLM wording. All empty means template wording only (`llm_status = skipped`). |
@@ -131,7 +148,7 @@ See [`docs/RUNBOOK.md`](docs/RUNBOOK.md): reading the run strip and log, every f
 
 ## Security notes
 
-- Named users who sign in with a one-time emailed link (15 minutes, single use, only a hash stored, confirmed by a POST so email scanners cannot use it up), signed `httpOnly` `SameSite=Lax` session cookie (`Secure` in production), role checks on every mutating route. The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
+- **Open access** (`OPEN_ACCESS=1`) deliberately removes sign-in: anyone with the link can approve, export and stop the system. It exists for demonstrations and marking and must be off for real use. `PUBLIC_VIEW=1` is the milder option (look, but change nothing). Otherwise: named users who sign in with a one-time emailed link (15 minutes, single use, only a hash stored, confirmed by a POST so email scanners cannot use it up), signed `httpOnly` `SameSite=Lax` session cookie (`Secure` in production), role checks on every mutating route. The proxy (`src/proxy.ts`) protects every page and API route; cron and scripts use the bearer `CRON_SECRET`.
 - All external input is validated with Zod: every CSV row, every request body, every route parameter (UUIDs), and the `next` redirect on login.
 - CSV content is untrusted: size, row and field limits; formula characters rejected in identifiers; every CSV we write neutralises cells starting with `=`, `+`, `-` or `@`. CSV text is only ever rendered by React (escaped).
 - No API key or full prompt is logged (JSON logs redact secret-like fields). The LLM receives only an allow-listed payload of computed numbers, SKU names and categories: never user notes, distributor names or raw tables (`src/ai/payload.ts`, tested).

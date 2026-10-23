@@ -90,6 +90,8 @@ Health > Go-live checklist: each item is ticked by a named user. When all are ti
 
 ## 8. Users and secrets
 
+**Open access.** If `OPEN_ACCESS=1` is set, nobody needs to sign in and everyone with the link is a guest administrator (see `ASSUMPTIONS.md` 82 to 85). Check this first if actions appear under the name "Guest". To require sign-in again, remove `OPEN_ACCESS` (or set it to `0`) in Vercel and redeploy.
+
 - **Sign-in:** there are no passwords. A person enters their email and gets a one-time link (valid 15 minutes, works once; opening it shows a Sign in button). Links need `RESEND_API_KEY`, `ALERT_FROM` and `APP_URL`. **If email is down or a link does not arrive:** check the Resend dashboard and the function logs for "sign-in link could not be emailed", or IT can print a one-time link: `DATABASE_URL=... npm run login-link -- --email raghav@freshroots.example --url https://<app>`.
 - **Add or change a user:** put them in `SEED_USERS` (JSON, see `.env.example`) and run `npm run seed:users` against the production database (`DATABASE_URL=... npm run seed:users`). Re-running with the same email updates name and role. Roles: planner (Raghav), sponsor (Deepa), data (Priya), admin (IT).
 - **Remove a user:** in the Neon SQL editor, `update users set active = false where email = '...';`.

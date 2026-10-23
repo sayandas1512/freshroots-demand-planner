@@ -63,7 +63,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
     decisionStats(db, 4),
     systemHealth(db),
   ]);
-  const role = actor?.role ?? "planner";
+  const role = actor?.role ?? null;
   const chronological = [...h.runs].reverse();
   const brief = h.baseline.find((b) => b.stockoutLossInrHigh !== null && b.writeoffInrHigh !== null);
   const entries = h.baseline.filter((b) => b.stockoutLossInrHigh === null);
@@ -136,7 +136,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
       <section className="card section" aria-labelledby="golive-h" data-testid="golive-section">
         <h2 id="golive-h">Go-live checklist</h2>
         <p className="muted small">Mode changes to live only when every item is ticked by a named user and the sponsor saves the change on Settings. {readiness.ready ? "All items are ticked." : `${readiness.missing.length} still open.`}</p>
-        <GoLiveChecklist readiness={readiness} role={role} canTick={can(role, "goLive")} />
+        <GoLiveChecklist readiness={readiness} role={role ?? ""} canTick={can(role, "goLive")} />
       </section>
 
       <section className="grid grid-4" aria-label="Key figures">

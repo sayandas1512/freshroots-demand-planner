@@ -1,4 +1,7 @@
 import { cookies, headers } from "next/headers";
+import type { Db } from "@/db/client";
+import { getDb } from "@/db/client";
+import { getGuestUser, openAccessEnabled } from "./guest";
 import { NextResponse } from "next/server";
 import { can, type Permission, type Role } from "./roles";
 import { SESSION_COOKIE, bearerMatches, verifySessionValue } from "./session";
@@ -8,16 +11,29 @@ export interface Actor {
   userId: string | null;
   role: Role;
   system: boolean;
+  /** True for an open-access visitor who did not sign in. */
+  guest?: boolean;
 }
 
 const SYSTEM: Actor = { userId: null, role: "admin", system: true };
 
-export async function actorFromHeaders(authorization: string | null, cookieValue: string | undefined): Promise<Actor | null> {
-  if (bearerMatches(authorization, process.env.CRON_SECRET)) return SYSTEM;
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) return null;
-  const session = await verifySessionValue(secret, cookieValue);
-  return session ? { userId: session.userId, role: session.role, system: false } : null;
+export interface ActorDeps {
+  env?: NodeJS.ProcessEnv;
+  db?: Db;
+}
+
+/** Order: the cron secret, then a signed-in session, then (only when OPEN_ACCESS=1) a guest administrator. */
+export async function actorFromHeaders(authorization: string | null, cookieValue: string | undefined, deps: ActorDeps = {}): Promise<Actor | null> {
+  const env = deps.env ?? process.env;
+  if (bearerMatches(authorization, env.CRON_SECRET)) return SYSTEM;
+  const secret = env.SESSION_SECRET;
+  const session = secret ? await verifySessionValue(secret, cookieValue) : null;
+  if (session) return { userId: session.userId, role: session.role, system: false };
+  if (openAccessEnabled(env)) {
+    const guest = await getGuestUser(deps.db ?? (await getDb()));
+    return { userId: guest.id, role: "admin", system: false, guest: true };
+  }
+  return null;
 }
 
 export function actorFromRequest(request: Request): Promise<Actor | null> {

@@ -17,7 +17,7 @@ const LINKS = [
   { href: "/shadow", label: "Shadow" },
 ];
 
-export function Nav({ userName, role, mode, killed }: { userName: string; role: Role; mode: "shadow" | "live"; killed: boolean }) {
+export function Nav({ userName, role, mode, killed, guest = false }: { userName: string; role: Role | null; mode: "shadow" | "live"; killed: boolean; guest?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -47,10 +47,10 @@ export function Nav({ userName, role, mode, killed }: { userName: string; role: 
       </nav>
       <div className="shell-spacer" />
       {mode === "shadow" ? <span className="chip chip-demand" data-testid="shadow-chip" title="Runs and reviews work, but the export is blocked">SHADOW</span> : null}
-      {killed ? <span className="chip chip-stockout" data-testid="killed-chip">STOPPED</span> : <StopControl />}
-      <span className="user-chip" data-testid="user-chip">{userName} · {ROLE_LABEL[role]}</span>
+      {killed ? <span className="chip chip-stockout" data-testid="killed-chip">STOPPED</span> : role ? <StopControl /> : null}
+      <span className="user-chip" data-testid="user-chip">{guest ? "Guest · open access" : role ? `${userName} · ${ROLE_LABEL[role]}` : "Viewing only"}</span>
       <ThemeToggle />
-      <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+      {role && !guest ? <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button> : <Link href="/login" className="btn btn-sm" data-testid="nav-signin">Sign in</Link>}
     </header>
   );
 }

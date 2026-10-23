@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3200;
+const OPEN_PORT = 3201;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -10,7 +11,11 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
+  projects: [
+    { name: "main", testMatch: /review-flow\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, baseURL: `http://localhost:${PORT}` } },
+    // Open access: a second server where anyone with the link acts as a guest administrator, like a marker would.
+    { name: "open", testMatch: /open-access\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, baseURL: `http://localhost:${OPEN_PORT}` } },
+  ],
   webServer: [
     { command: "npx tsx e2e/fake-zoho-server.ts", url: "http://localhost:4010/__state", reuseExistingServer: false, timeout: 60_000 },
     {
@@ -19,7 +24,14 @@ export default defineConfig({
     url: `http://localhost:${PORT}/login`,
     reuseExistingServer: false,
     timeout: 240_000,
-    env: { PGLITE_DIR: ".data/e2e", SESSION_SECRET: "e2e-session-secret-0123456789", SEED_USERS: JSON.stringify([{ email: "raghav@freshroots.test", name: "Raghav", role: "planner" }, { email: "deepa@freshroots.test", name: "Deepa", role: "sponsor" }, { email: "priya@freshroots.test", name: "Priya", role: "data" }, { email: "it@freshroots.test", name: "IT Admin", role: "admin" }]), AUTH_DEV_LINKS: "1", CRON_SECRET: "e2e-cron-secret-0123456789", ZOHO_CLIENT_ID: "cid", ZOHO_CLIENT_SECRET: "secret", ZOHO_REFRESH_TOKEN: "refresh-123", ZOHO_ORG_ID: "60001", ZOHO_API_BASE_URL: "http://localhost:4010/inventory/v1", ZOHO_ACCOUNTS_BASE_URL: "http://localhost:4010", ZOHO_WEBHOOK_SECRET: "e2e-webhook-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "", GEMINI_API_KEY: "" },
+    env: { PGLITE_DIR: ".data/e2e", SESSION_SECRET: "e2e-session-secret-0123456789", SEED_USERS: JSON.stringify([{ email: "raghav@freshroots.test", name: "Raghav", role: "planner" }, { email: "deepa@freshroots.test", name: "Deepa", role: "sponsor" }, { email: "priya@freshroots.test", name: "Priya", role: "data" }, { email: "it@freshroots.test", name: "IT Admin", role: "admin" }]), AUTH_DEV_LINKS: "1", PUBLIC_VIEW: "1", CRON_SECRET: "e2e-cron-secret-0123456789", ZOHO_CLIENT_ID: "cid", ZOHO_CLIENT_SECRET: "secret", ZOHO_REFRESH_TOKEN: "refresh-123", ZOHO_ORG_ID: "60001", ZOHO_API_BASE_URL: "http://localhost:4010/inventory/v1", ZOHO_ACCOUNTS_BASE_URL: "http://localhost:4010", ZOHO_WEBHOOK_SECRET: "e2e-webhook-secret-0123456789", DATABASE_URL: "", ANTHROPIC_API_KEY: "", GEMINI_API_KEY: "" },
   },
+    {
+      command: `rm -rf .data/e2e-open && npm run seed && npx next start -p ${OPEN_PORT}`,
+      url: `http://localhost:${OPEN_PORT}/login`,
+      reuseExistingServer: false,
+      timeout: 240_000,
+      env: { PGLITE_DIR: ".data/e2e-open", SESSION_SECRET: "e2e-session-secret-0123456789", CRON_SECRET: "e2e-cron-secret-0123456789", OPEN_ACCESS: "1", DATABASE_URL: "", ANTHROPIC_API_KEY: "", GEMINI_API_KEY: "" },
+    },
   ],
 });

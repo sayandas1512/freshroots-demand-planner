@@ -11,8 +11,7 @@ type UserKey = keyof typeof USERS;
 
 /** Sign in the way a person does: ask for a link, open it, confirm. (The e2e server shows the link instead of emailing it.) */
 async function login(page: Page, who: UserKey = "admin") {
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/login/);
+  await page.goto("/login");
   await expect(page.getByLabel("Password")).toHaveCount(0);
   await page.getByLabel("Email").fill(USERS[who].email);
   await page.getByRole("button", { name: "Email me a sign-in link" }).click();
@@ -294,6 +293,51 @@ test("Zoho: sync, map vendors, create draft purchase orders once, never issue th
   await raghavCtx.close();
 });
 
+test("public view: anyone with the link can look, nobody can change anything", async ({ browser }) => {
+  const ctx = await browser.newContext({ baseURL: "http://localhost:3200" });
+  const page = await ctx.newPage();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+  await expect(page.getByTestId("view-banner")).toContainText("viewing without signing in");
+  await expect(page.getByTestId("user-chip")).toHaveText("Viewing only");
+  await expect(page.getByTestId("nav-signin")).toBeVisible();
+  await expect(page.getByTestId("stop-button")).toHaveCount(0);
+
+  // the data is visible...
+  await expect(page.getByTestId("headline")).toBeVisible();
+  await expect(page.getByTestId("row-SKU001")).toContainText("high_demand+stockout_risk.general");
+  // ...but nothing can be done
+  await expect(page.getByTestId("row-SKU003").getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("run-now")).toBeDisabled();
+  await expect(page.getByTestId("export-link")).toBeDisabled();
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByTestId("cfg-cover_min_weeks")).toBeDisabled();
+  await expect(page.getByTestId("op-mode-live")).toBeDisabled();
+  await page.getByRole("link", { name: "Health" }).click();
+  await expect(page.getByTestId("kill-criteria")).toContainText("Quarterly loss");
+  await expect(page.getByTestId("clear-kill")).toHaveCount(0);
+  await expect(page.getByTestId("golive-kill_drill_done").getByRole("checkbox")).toBeDisabled();
+  await page.getByRole("link", { name: "Outcomes" }).click();
+  await expect(page.getByTestId("weekly-table")).toBeVisible();
+  await expect(page.getByLabel("Weekly outcomes CSV")).toHaveCount(0);
+
+  // the API refuses every change and every export, with or without the page
+  const run = await page.request.post("/api/run", { data: { asOf: "2026-10-19" } });
+  expect(run.status()).toBe(401);
+  expect((await page.request.post("/api/recommendations/00000000-0000-0000-0000-000000000000/decision", { data: { action: "approve" } })).status()).toBe(401);
+  expect((await page.request.post("/api/ingest/sales", { data: "SKU_ID,Week,Units_Sold\n", headers: { "content-type": "text/csv" } })).status()).toBe(401);
+  expect((await page.request.post("/api/zoho/push", { data: { runId: "00000000-0000-0000-0000-000000000000" } })).status()).toBe(401);
+  expect((await page.request.get("/api/export/approved?run=00000000-0000-0000-0000-000000000000")).status()).toBe(401);
+  expect((await page.request.get("/api/backtest/export?run=00000000-0000-0000-0000-000000000000")).status()).toBe(401);
+  expect((await page.request.get("/api/cron/run")).status()).toBe(401);
+
+  // signing in from here still works for people who need to act
+  await page.getByTestId("nav-signin").click();
+  await expect(page).toHaveURL(/\/login/);
+  await ctx.close();
+});
+
 test("theme toggle switches and persists", async ({ page }) => {
   await login(page);
   const html = page.locator("html");
@@ -437,7 +481,10 @@ test("sign-in links: one use, no account enumeration, expired or invented links 
 
 test("API access: unauthenticated is refused, secrets are required, health and kill-check answer", async ({ request }) => {
   expect((await request.get("/api/export/approved?run=00000000-0000-0000-0000-000000000000")).status()).toBe(401);
-  expect((await request.get("/api/health")).status()).toBe(401);
+  expect((await request.get("/api/health")).status()).toBe(200); // public view: status only
+  expect((await request.post("/api/run", { data: { asOf: "2026-10-19" } })).status()).toBe(401);
+  expect((await request.post("/api/kill/stop", { data: { reason: "anyone with the link" } })).status()).toBe(401);
+  expect((await request.post("/api/settings/config", { data: {} })).status()).toBe(401);
   expect((await request.get("/api/cron/run")).status()).toBe(401);
   expect((await request.get("/api/cron/run", { headers: { authorization: "Bearer wrong" } })).status()).toBe(401);
   const bearer = { authorization: "Bearer e2e-cron-secret-0123456789" };
