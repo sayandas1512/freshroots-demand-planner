@@ -26,10 +26,11 @@ export function SystemStatus({ initial }: { initial: SystemHealth }) {
         <span className={`chip ${CHIP[h.overall]}`} data-testid="overall-status">{h.overall}</span>
         <button type="button" className="btn btn-sm" onClick={() => refresh(true)} disabled={busy}>{busy ? "Checking…" : "Check now, including the LLM"}</button>
       </div>
-      <div className="grid grid-4">
+      <div className="grid grid-3">
         <div><span className="stat-label">Database</span><p className="num">{h.db.ok ? `reachable (${h.db.ms} ms)` : "unreachable"}</p></div>
         <div><span className="stat-label">Last run</span><p className="num">{h.lastRun ? `${h.lastRun.asOf}: ${h.lastRun.status.replaceAll("_", " ")}` : "none yet"}</p></div>
         <div><span className="stat-label">Files</span><p className="num">sales {h.files.latestSalesWeek ?? "none"} · stock {h.files.latestInventoryDate ?? "none"}{h.files.inventoryStale ? " (stale)" : ""}</p></div>
+        <div><span className="stat-label">Zoho</span><p className="num" data-testid="zoho-health">{!h.zoho.configured ? "not connected: CSV paths" : h.zoho.lastSyncAt === null ? "no sync yet" : `${h.zoho.lastSyncOk ? "synced" : "last sync failed"} ${h.zoho.ageMinutes} min ago${h.zoho.error ? ` (${h.zoho.error})` : ""}`}</p></div>
         <div><span className="stat-label">LLM</span><p className="num">{h.llm.provider ? `${h.llm.provider} ${h.llm.model ?? ""}: ${h.llm.reachable === null ? "not checked" : h.llm.reachable ? "reachable" : `unreachable (${h.llm.error ?? "error"})`}` : "not configured: template wording"}</p></div>
       </div>
     </section>

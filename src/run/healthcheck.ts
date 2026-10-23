@@ -6,6 +6,8 @@ import { daysBetween } from "@/engine/weeks";
 import { dataFreshness } from "@/ingest/ingest";
 import { getKillState } from "@/kill/state";
 import { todayIst } from "@/lib/dates";
+import { zohoConfig } from "@/zoho";
+import { lastSync } from "@/zoho/sync";
 import { getActiveConfig } from "./config-store";
 
 export type Overall = "ok" | "degraded" | "stopped" | "down";
@@ -19,6 +21,7 @@ export interface SystemHealth {
   kill: { active: boolean; reason: string | null };
   mode: "shadow" | "live";
   llm: { provider: string | null; model: string | null; reachable: boolean | null; error?: string };
+  zoho: { configured: boolean; lastSyncAt: string | null; lastSyncOk: boolean | null; ageMinutes: number | null; error: string | null };
 }
 
 /**
@@ -37,7 +40,7 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
   const ms = dbOk ? Date.now() - t0 : null;
   const llmKind = configuredProvider();
   if (!dbOk) {
-    return { overall: "down", checkedAt: now.toISOString(), db: { ok: false, ms: null }, lastRun: null, files: { latestSalesWeek: null, latestInventoryDate: null, inventoryAgeDays: null, inventoryStale: true }, kill: { active: false, reason: null }, mode: "shadow", llm: { provider: llmKind, model: null, reachable: null } };
+    return { overall: "down", checkedAt: now.toISOString(), db: { ok: false, ms: null }, lastRun: null, files: { latestSalesWeek: null, latestInventoryDate: null, inventoryAgeDays: null, inventoryStale: true }, kill: { active: false, reason: null }, mode: "shadow", llm: { provider: llmKind, model: null, reachable: null }, zoho: { configured: zohoConfig() !== null, lastSyncAt: null, lastSyncOk: null, ageMinutes: null, error: null } };
   }
 
   const [lastRow] = await db.select().from(runs).where(ne(runs.trigger, "backtest")).orderBy(desc(runs.startedAt)).limit(1);
@@ -60,8 +63,12 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
     }
   }
 
+  const zohoOn = zohoConfig() !== null;
+  const zs = zohoOn ? await lastSync(db) : null;
+  const zohoAge = zs ? Math.round((now.getTime() - zs.at.getTime()) / 60_000) : null;
+  const zohoBad = zohoOn && (zs === null || !zs.ok || (zohoAge ?? 0) > 120);
   const lastBad = lastRow !== undefined && (lastRow.status === "failed" || lastRow.status === "completed_degraded");
-  const overall: Overall = kill.active ? "stopped" : stale || lastBad || llm.reachable === false ? "degraded" : "ok";
+  const overall: Overall = kill.active ? "stopped" : stale || lastBad || zohoBad || llm.reachable === false ? "degraded" : "ok";
   return {
     overall,
     checkedAt: now.toISOString(),
@@ -71,5 +78,6 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
     kill: { active: kill.active, reason: kill.reason },
     mode: config.mode,
     llm,
+    zoho: { configured: zohoOn, lastSyncAt: zs?.at.toISOString() ?? null, lastSyncOk: zs?.ok ?? null, ageMinutes: zohoAge, error: zs?.error ?? null },
   };
 }

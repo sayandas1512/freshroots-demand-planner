@@ -174,7 +174,11 @@ export function SettingsForm({ active, history, perms }: { active: { version: nu
               </label>
             ))}
           </div>
-          {!perms.setMode ? <p className="small muted">Only the sponsor or an admin can change the mode.</p> : null}
+          <label className="check">
+            <input type="checkbox" checked={draft.zoho_push_enabled} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, zoho_push_enabled: e.target.checked })); }} data-testid="cfg-zoho_push_enabled" />
+            <span><strong>Allow creating draft purchase orders in Zoho</strong><span className="hint block">Off by default. When on, the planner can send approved lines to Zoho as drafts from the Export preview. Drafts are never issued by the system. Needs the Zoho connector and live mode.</span></span>
+          </label>
+          {!perms.setMode ? <p className="small muted">Only the sponsor or an admin can change the mode and this switch.</p> : null}
         </fieldset>
 
         {GROUPS.map((g) => (

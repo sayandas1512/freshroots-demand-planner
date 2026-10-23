@@ -9,10 +9,11 @@ interface Props {
   label: string;
   source: string;
   headers: string[];
+  managedBy?: string | null;
   last: { fileName: string; accepted: number; rejected: number; replaced: number; at: string } | null;
 }
 
-export function UploadCard({ kind, label, source, headers, last }: Props) {
+export function UploadCard({ kind, label, source, headers, last, managedBy }: Props) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +63,8 @@ export function UploadCard({ kind, label, source, headers, last }: Props) {
       ) : (
         <p className="small muted">Nothing uploaded yet.</p>
       )}
-      <form onSubmit={upload} className="upload-form">
+      {managedBy ? <p className="small ok-text" data-testid={`managed-${kind}`}>Managed by the {managedBy}: the CSV upload is switched off. See the Zoho page.</p> : null}
+      <form onSubmit={upload} className="upload-form" hidden={Boolean(managedBy)}>
         <input ref={input} type="file" accept=".csv,text/csv" aria-label={`${label} CSV file`} />
         <button type="submit" className="btn btn-primary btn-sm" disabled={busy}>{busy ? "Uploading…" : "Upload"}</button>
       </form>

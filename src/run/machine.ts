@@ -12,6 +12,7 @@ import { evaluateAll } from "@/engine/evaluate";
 import type { EvaluationResult, ExceptionItem, RecommendationLine, SkuMaster } from "@/engine/types";
 import { daysBetween } from "@/engine/weeks";
 import { runKillCheck } from "@/kill/run";
+import { ensureFreshOpenPos } from "@/zoho";
 import { log } from "@/lib/log";
 import { notifyRunProblem } from "./alerts";
 import { getActiveConfig } from "./config-store";
@@ -137,6 +138,11 @@ async function acquireLease(db: Db, runId: string, now: Date) {
 async function prepare(db: Db, run: typeof runs.$inferSelect, progress: Progress, options: AdvanceOptions): Promise<void> {
   const asOf = run.asOfDate;
   await progress.step("ingest_check", "running");
+  // Fresh open POs from Zoho when the connector is on. A failed sync never stops the run.
+  const zoho = await ensureFreshOpenPos(db);
+  if (zoho.attempted && (!zoho.report || !zoho.report.ok)) {
+    await progress.note(`Zoho sync failed${zoho.report?.error ? ` (${zoho.report.error})` : ""}. Open POs are as of ${zoho.lastOkAt ? zoho.lastOkAt.toISOString().slice(0, 16).replace("T", " ") + " UTC" : "never"}.`);
+  }
   const { version, config } = await getActiveConfig(db);
   const loaded = await loadEngineData(db, asOf, { includeOpenPos: true, includeDistributors: config.enable_distributor_exceptions });
   const inventoryAge = loaded.latestInventoryDate === null ? null : daysBetween(loaded.latestInventoryDate, asOf);

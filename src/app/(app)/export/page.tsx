@@ -8,6 +8,9 @@ import { exportColumns } from "@/export/mapping";
 import { approvedExportLines } from "@/export/query";
 import { getKillState } from "@/kill/state";
 import { getActiveConfig } from "@/run/config-store";
+import { zohoConfig } from "@/zoho";
+import { planDraftPos } from "@/zoho/push";
+import { ZohoPushPanel } from "./ZohoPushPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Export preview · Freshroots" };
@@ -26,6 +29,8 @@ export default async function ExportPreview({ searchParams }: { searchParams: Pr
   const canDownload = mode === "live" && !kill.active && allowed;
   if (canDownload) await db.insert(exportLog).values({ runId: id.data, userId: actor?.userId ?? null, lineCount: lines.length, totalQty: total, kind: "preview" });
   const columns = exportColumns(active.config.export_id_label);
+  const zohoOn = zohoConfig() !== null && canDownload;
+  const plan = zohoOn ? await planDraftPos(db, id.data) : null;
 
   return (
     <>
@@ -62,6 +67,7 @@ export default async function ExportPreview({ searchParams }: { searchParams: Pr
           </div>
         </div>
       )}
+      {plan ? <ZohoPushPanel runId={id.data} plan={plan} enabled={active.config.zoho_push_enabled} /> : null}
     </>
   );
 }

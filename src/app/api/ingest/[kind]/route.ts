@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isResponse, requirePermission } from "@/auth/actor";
+import { zohoConfig } from "@/zoho";
 import { getDb } from "@/db/client";
 import { ingestCsv } from "@/ingest/ingest";
 import { LIMITS, isIngestKind } from "@/ingest/mapping";
@@ -12,6 +13,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ kind: stri
   const actor = await requirePermission(request, "upload");
   if (isResponse(actor)) return actor;
   const { kind } = await ctx.params;
+  if (kind === "open_pos" && zohoConfig()) return NextResponse.json({ error: "Open POs come from the Zoho connector, so the CSV upload is switched off. Use Sync now on the Zoho page." }, { status: 409 });
   if (!isIngestKind(kind)) return NextResponse.json({ error: `Unknown file kind: ${kind}` }, { status: 404 });
 
   const limit = rateLimit(`ingest:${clientKey(request.headers)}`, 30, 60_000);

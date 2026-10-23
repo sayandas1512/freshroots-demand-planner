@@ -1,4 +1,4 @@
-import { count, inArray, sql } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import type { Db, Tx } from "@/db/client";
 import { distributors, festivalMonths, ingestReports, inventorySnapshots, openPos, skus, weeklySales, weeklySalesByDistributor } from "@/db/schema";
 import { log } from "@/lib/log";
@@ -180,9 +180,9 @@ async function upsertInventory(tx: Tx, rows: RowFor<"inventory">[]): Promise<App
 
 /** The Zoho export is a complete list of open POs, so each upload replaces the previous list. */
 async function replaceOpenPos(tx: Tx, rows: RowFor<"open_pos">[]): Promise<Applied> {
-  const [previous] = await tx.select({ n: count() }).from(openPos);
-  await tx.delete(openPos);
-  for (const part of chunks(rows)) await tx.insert(openPos).values(part);
+  const [previous] = await tx.select({ n: count() }).from(openPos).where(eq(openPos.source, "csv"));
+  await tx.delete(openPos).where(eq(openPos.source, "csv"));
+  for (const part of chunks(rows)) await tx.insert(openPos).values(part.map((r) => ({ ...r, source: "csv" })));
   return { inserted: rows.length, replaced: previous?.n ?? 0 };
 }
 

@@ -22,7 +22,8 @@
     "run:now": "tsx scripts/run-now.ts",
     "backtest": "tsx scripts/backtest.ts",
     "fixtures:build": "tsx scripts/build-fixtures.ts",
-    "gen:synthetic": "tsx scripts/gen-synthetic.ts"
+    "gen:synthetic": "tsx scripts/gen-synthetic.ts",
+    "zoho:token": "tsx scripts/zoho-token.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

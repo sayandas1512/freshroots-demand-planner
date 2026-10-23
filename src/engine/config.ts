@@ -35,6 +35,7 @@ export const ruleConfigSchema = z
     distributor_shift_pct: z.number().min(1).max(100).default(30),
     enable_lead_time_flag: z.boolean().default(false),
     enable_moq_flag: z.boolean().default(false),
+    zoho_push_enabled: z.boolean().default(false),
     expected_regions: z.array(z.string().trim().min(1).max(60)).max(30).default(["Maharashtra", "Goa"]),
     export_id_label: z.string().trim().min(1).max(40).default("Distributor_ID"),
   })
@@ -82,6 +83,7 @@ export const DEFAULT_RULE_CONFIG: RuleConfig = {
   distributor_shift_pct: 30,
   enable_lead_time_flag: false,
   enable_moq_flag: false,
+  zoho_push_enabled: false,
   expected_regions: ["Maharashtra", "Goa"],
   export_id_label: "Distributor_ID",
 };
@@ -114,6 +116,7 @@ export const CONFIG_LABELS: Record<keyof RuleConfig, string> = {
   distributor_shift_pct: "Distributor shift threshold (%)",
   enable_lead_time_flag: "Lead-time breach flag",
   enable_moq_flag: "Minimum order quantity flag",
+  zoho_push_enabled: "Create draft purchase orders in Zoho",
   expected_regions: "Expected distributor regions",
   export_id_label: "Export label for the distributor column",
 };

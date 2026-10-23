@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/settings", label: "Settings" },
   { href: "/data", label: "Data" },
   { href: "/outcomes", label: "Outcomes" },
+  { href: "/zoho", label: "Zoho" },
   { href: "/health", label: "Health" },
   { href: "/backtest", label: "Backtest" },
   { href: "/shadow", label: "Shadow" },

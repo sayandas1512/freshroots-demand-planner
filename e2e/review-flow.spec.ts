@@ -36,6 +36,8 @@ test("shadow mode: sign in as the planner, run, review, decide; the export stays
   const row1 = page.getByTestId("row-SKU001");
   await expect(row1).toContainText("high_demand+stockout_risk.general");
   await expect(row1).toContainText("ratio 1.21/1.20");
+  // the open PO came from Zoho (synced before the run), shown next to stock and not counted
+  await expect(row1).toContainText("open PO 300 (not counted)");
 
   // keyboard approve, button approve, reject with a reason, edit with a reason
   await page.keyboard.press("j");
@@ -95,8 +97,11 @@ test("roles: each role can and cannot do what it should", async ({ browser }) =>
   await expect(priya.page.getByTestId("row-SKU001")).toBeVisible();
   await expect(priya.page.getByTestId("row-SKU001").getByRole("button", { name: "Approve" })).toHaveCount(0);
   await priya.page.getByRole("link", { name: "Data" }).click();
-  const card = priya.page.getByTestId("upload-open_pos");
-  await card.getByLabel("Open purchase orders CSV file").setInputFiles({ name: "po.csv", mimeType: "text/csv", buffer: Buffer.from("SKU_ID,Open_PO_Qty,Expected_Date\nSKU001,300,2026-10-25\n") });
+  // open POs are managed by the Zoho connector, so the CSV upload is off for them
+  await expect(priya.page.getByTestId("managed-open_pos")).toContainText("Managed by the Zoho connector");
+  expect((await priya.page.request.post("/api/ingest/open_pos", { data: "SKU_ID,Open_PO_Qty,Expected_Date\n", headers: { "content-type": "text/csv" } })).status()).toBe(409);
+  const card = priya.page.getByTestId("upload-festival_calendar");
+  await card.getByLabel("Festival calendar CSV file").setInputFiles({ name: "fc.csv", mimeType: "text/csv", buffer: Buffer.from("Year,Month,Year_Month,Is_Festival_Month\n2026,12,2026-12,FALSE\n") });
   await card.getByRole("button", { name: "Upload" }).click();
   await expect(card.getByText("1 accepted", { exact: true })).toBeVisible();
   expect((await priya.page.request.post("/api/recommendations/00000000-0000-0000-0000-000000000000/decision", { data: { action: "approve" } })).status()).toBe(403);
@@ -216,6 +221,74 @@ test("kill switch: a manual stop makes everything read-only, and only the sponso
   await expect(deepa.getByTestId("kill-banner")).toHaveCount(0);
   await expect(deepa.getByText(/cleared by Deepa/)).toBeAttached();
   await deepaCtx.close();
+});
+
+test("Zoho: sync, map vendors, create draft purchase orders once, never issue them", async ({ browser }) => {
+  const state = async (page: Page) => (await (await page.request.get("http://localhost:4010/__state")).json()) as { pos: { purchaseorder_number: string; status: string; vendor_id: string; line_items: { item_id: string; quantity: number }[] }[]; calls: string[] };
+
+  // admin: sync, then map the distributors on the approved lines to Zoho vendors
+  const adminCtx = await browser.newContext({ baseURL: "http://localhost:3200" });
+  const admin = await adminCtx.newPage();
+  await login(admin, "admin");
+  await admin.getByRole("link", { name: "Zoho" }).click();
+  await admin.getByTestId("zoho-sync").click();
+  await expect(admin.getByText(/Synced: 1 open PO lines/)).toBeVisible();
+  await expect(admin.getByTestId("zoho-last")).toHaveText("OK");
+  await admin.getByLabel("Zoho vendor for D001").selectOption("vendor-A");
+  await expect(admin.getByText("Vendor mapping saved.")).toBeVisible();
+  await admin.getByLabel("Zoho vendor for D003").selectOption("vendor-B");
+  await expect(admin.getByLabel("Zoho vendor for D003")).toHaveValue("vendor-B");
+
+  // before the sponsor switches it on, nothing can be created
+  await admin.goto("/");
+  await admin.getByTestId("export-link").click();
+  await expect(admin.getByTestId("zoho-push-panel")).toContainText("switched off");
+  await expect(admin.getByTestId("zoho-push")).toBeDisabled();
+  expect((await admin.request.post("/api/zoho/push", { data: { runId: new URL(admin.url()).searchParams.get("run") } })).status()).toBe(423);
+
+  // the sponsor (admin here) switches the feature on in Settings
+  await admin.getByRole("link", { name: "Settings" }).click();
+  await admin.getByTestId("cfg-zoho_push_enabled").check();
+  await admin.getByTestId("config-note").fill("Allow draft POs in Zoho");
+  await admin.getByTestId("save-config").click();
+  await expect(admin.getByText(/Saved as version \d+/)).toBeVisible();
+
+  // the planner creates the drafts from the export preview
+  const raghavCtx = await browser.newContext({ baseURL: "http://localhost:3200" });
+  const raghav = await raghavCtx.newPage();
+  await login(raghav, "planner");
+  await raghav.getByTestId("export-link").click();
+  await expect(raghav.getByTestId("zoho-po-vendor-A")).toContainText("Sahyadri Supplies");
+  await expect(raghav.getByTestId("zoho-po-vendor-A")).toContainText("1400 units".replace("1400", "1,400"));
+  await expect(raghav.getByTestId("zoho-po-vendor-B")).toContainText("Fresh Bhakarwadi 250g");
+  raghav.once("dialog", (d) => void d.accept());
+  await raghav.getByTestId("zoho-push").click();
+  await expect(raghav.getByTestId("zoho-results")).toContainText("Sahyadri Supplies: created");
+  await expect(raghav.getByTestId("zoho-results")).toContainText("Deccan Wholesale: created");
+
+  const s1 = await state(raghav);
+  const drafts = s1.pos.filter((p) => p.purchaseorder_number.startsWith("FR-"));
+  expect(drafts.map((p) => [p.status, p.vendor_id]).sort()).toEqual([["draft", "vendor-A"], ["draft", "vendor-B"]]);
+  expect(drafts.find((p) => p.vendor_id === "vendor-A")?.line_items.map((l) => [l.item_id, l.quantity])).toEqual([["item-SKU001", 900], ["item-SKU003", 500]]);
+  expect(s1.calls.some((c) => /issue|approve|submit|status/i.test(c))).toBe(false);
+
+  // pressing it again creates nothing new
+  raghav.once("dialog", (d) => void d.accept());
+  await raghav.getByTestId("zoho-push").click();
+  await expect(raghav.getByTestId("zoho-results")).toContainText("already created");
+  expect((await state(raghav)).pos.filter((p) => p.purchaseorder_number.startsWith("FR-"))).toHaveLength(2);
+
+  // the Zoho page lists them, and a shadow-mode or killed system could not have created them
+  await admin.getByRole("link", { name: "Zoho" }).click();
+  await expect(admin.getByTestId("push-log")).toContainText("created");
+  await admin.getByRole("link", { name: "Health" }).click();
+  await expect(admin.getByTestId("zoho-health")).toContainText("synced");
+
+  // the webhook nudge: wrong secret refused, right secret accepted
+  expect((await raghav.request.post("/api/zoho/webhook", { headers: { "x-zoho-webhook-secret": "wrong-wrong-wrong-wrong" } })).status()).toBe(401);
+  expect([202]).toContain((await raghav.request.post("/api/zoho/webhook", { headers: { "x-zoho-webhook-secret": "e2e-webhook-secret-0123456789" } })).status());
+  await adminCtx.close();
+  await raghavCtx.close();
 });
 
 test("theme toggle switches and persists", async ({ page }) => {

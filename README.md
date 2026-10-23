@@ -20,12 +20,12 @@ Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, 
 |---|---|---|
 | 01 | Raghav / Input: Settings page, rule thresholds and **shadow or live mode** | `src/app/(app)/settings`, `src/run/config-store.ts`, `src/run/mode.ts`, `src/engine/config.ts`, `src/auth/config-auth.ts` |
 | 02 | Timer and kill / Trigger: cron Mon and Thu 07:00 IST, Run-now, **kill switch checked first** | `vercel.json`, `src/app/api/cron/run`, `src/app/api/run`, `src/run/execute.ts` (`startRun` refuses while killed) |
-| 03 | Data / Context: SAP and Zoho CSV drops (Priya), rule settings, history | `src/ingest` (column names in `src/ingest/mapping.ts`), `src/db`, `src/app/(app)/data`, `fixtures/`, `src/synthetic` |
+| 03 | Data / Context: SAP CSV drops (Priya), **Zoho open POs by API** (or CSV), rule settings, history | `src/ingest` (column names in `src/ingest/mapping.ts`), `src/zoho` (OAuth client, sync), `src/app/(app)/zoho`, `src/db`, `src/app/(app)/data`, `fixtures/`, `src/synthetic` |
 | 04 | Engine / Processing: clean, apply Raghav's rules, flag stockout and overstock, route exceptions | `src/engine` (pure TypeScript), `src/run/load.ts`, `src/run/machine.ts` (`prepare`) |
 | 05 | Engine / AI: reasons per flag and the run headline | `src/ai` (one provider interface: Gemini Flash, Anthropic; prompts, templates, guardrails, allow-list `payload.ts`) |
 | 06 | Engine / Output: draft sheet, saved before it is shown | `src/run/machine.ts` (one transaction in `prepare`), `recommendations` table |
 | 07 | Raghav / Output: approve, edit or reject each line | `src/app/(app)/page.tsx`, `src/components/review`, `src/run/decisions.ts` |
-| 08 | Procurement / Output: export of approved lines, **blocked in shadow mode or when killed** | `src/export`, `src/app/(app)/export` (preview), `src/app/api/export/approved`, `src/kill/guards.ts` |
+| 08 | Procurement / Output: export of approved lines as CSV **or draft POs in Zoho**, blocked in shadow mode or when killed | `src/export`, `src/zoho/push.ts`, `src/app/(app)/export` (preview), `src/app/api/export/approved`, `src/kill/guards.ts` |
 | 09 | Deepa / Output: Health page, override log, losses vs baseline, kill status, rubber-stamp warning, go-live checklist | `src/app/(app)/health`, `src/run/health.ts`, `src/golive`, `src/components/health` |
 | 10 | Before launch / Processing: backtest on SAP history against Raghav's past orders, festival uplift check | `src/backtest`, `src/run/history.ts`, `src/app/(app)/backtest`, `scripts/backtest.ts` |
 | 11 | Deepa / Context: outcome log (weekly incidents and overstock value, monthly ₹ loss, frozen baseline) | `src/outcomes`, `src/app/(app)/outcomes`, tables `outcomes_weekly`, `outcomes_monthly`, `baseline_weekly` |
@@ -91,6 +91,7 @@ npm run build                                                             # prod
 | `LLM_PROVIDER`, `LLM_MODEL` | `gemini` or `anthropic` (default: whichever key is set, Gemini first) and the model id (defaults per provider; verify with the provider). |
 | `LLM_PRICE_IN_PER_MTOK`, `LLM_PRICE_OUT_PER_MTOK` | USD per million tokens, used only to log run cost. |
 | `RESEND_API_KEY`, `ALERT_EMAIL`, `ALERT_FROM` | Optional alert emails (kill switch, failed or degraded runs). Without them alerts are logged only. |
+| `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_ORG_ID`, `ZOHO_DC` | Optional Zoho Inventory connector (OAuth refresh token). See [`docs/ZOHO.md`](docs/ZOHO.md). `ZOHO_OPEN_PO_STATUSES`, `ZOHO_DAILY_CALL_BUDGET` and `ZOHO_WEBHOOK_SECRET` tune it. |
 | `TZ` | `Asia/Kolkata`. |
 | `PGLITE_DIR` | Optional folder for the embedded database (default `.data/pglite`). |
 
@@ -102,7 +103,7 @@ Secrets are read on the server only. Nothing is prefixed `NEXT_PUBLIC_`.
 2. Import the repo in Vercel and set `DATABASE_URL`, `SESSION_SECRET`, `CRON_SECRET`, `GEMINI_API_KEY` (or the Anthropic key), `RESEND_API_KEY`, `ALERT_EMAIL` and `TZ=Asia/Kolkata` for Production. Choose the Neon region nearest India (Singapore). IT and the CEO sign off hosting before go-live.
 3. Deploy. The `vercel-build` script applies migrations (`tsx scripts/migrate.ts`) and then builds, so the first deploy creates the schema, the active rule config (v1) and the brief's baseline range.
 4. Create the users: `DATABASE_URL=... SEED_USERS=... npm run seed:users`. Load data on the **Data** page, or `DATABASE_URL=... npm run seed` for the sample.
-5. Vercel Cron reads `vercel.json`: `30 1 * * 1,4` (07:00 IST Monday and Thursday) runs `/api/cron/run`; `0 2 1 * *` runs the monthly kill check; `*/10 * * * *` runs `/api/cron/resume`, which picks up any run that stopped midway (use a daily schedule on a plan that does not allow it). Check the first run on the **Health** page, which also shows `/api/health`.
+5. Vercel Cron reads `vercel.json`: `30 1 * * 1,4` (07:00 IST Monday and Thursday) runs `/api/cron/run`; `0 2 1 * *` runs the monthly kill check; `*/30 * * * *` runs `/api/cron/zoho-sync` (does nothing without Zoho credentials); `*/10 * * * *` runs `/api/cron/resume`, which picks up any run that stopped midway (use a daily schedule on a plan that does not allow it). Check the first run on the **Health** page, which also shows `/api/health`.
 
 To change the schema: edit `src/db/schema.ts`, run `npm run db:generate`, commit the new file in `drizzle/`.
 
@@ -136,4 +137,4 @@ See [`docs/RUNBOOK.md`](docs/RUNBOOK.md): reading the run strip and log, every f
 
 ## Deferred
 
-SAP automated export, Zoho API integration (the PO export is a CSV for now), and the Distributor Service and Ops Intelligence modules. Alert email is built (Resend) but untested against the live service.
+SAP automated export, and the Distributor Service and Ops Intelligence modules. Alert email (Resend) and the Zoho connector are built and tested against stand-ins, not the live services.

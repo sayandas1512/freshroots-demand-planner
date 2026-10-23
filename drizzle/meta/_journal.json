@@ -43,6 +43,13 @@
       "when": 1792666705954,
       "tag": "0005_resumable_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792735712290,
+      "tag": "0006_zoho",
+      "breakpoints": true
     }
   ]
 }

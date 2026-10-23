@@ -1,6 +1,7 @@
 import { getDb } from "@/db/client";
 import { dataFreshness, latestReports } from "@/ingest/ingest";
 import { FILE_MAPPINGS, INGEST_KINDS } from "@/ingest/mapping";
+import { zohoConfig } from "@/zoho";
 import { UploadCard } from "./UploadCard";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function DataPage() {
   const [fresh, reports] = await Promise.all([dataFreshness(db), latestReports(db)]);
   const reportFor = new Map(reports.map((r) => [r.kind, r]));
   const kinds = [...INGEST_KINDS].sort((a, b) => FILE_MAPPINGS[a].loadOrder - FILE_MAPPINGS[b].loadOrder);
+  const zohoOn = zohoConfig() !== null;
   const today = new Date().toISOString().slice(0, 10);
   const inventoryAge = fresh.latestInventoryDate ? Math.round((Date.parse(today) - Date.parse(fresh.latestInventoryDate)) / 86_400_000) : null;
 
@@ -51,6 +53,7 @@ export default async function DataPage() {
               label={FILE_MAPPINGS[kind].label}
               source={FILE_MAPPINGS[kind].source}
               headers={Object.values(FILE_MAPPINGS[kind].columns)}
+              managedBy={kind === "open_pos" && zohoOn ? "Zoho connector" : null}
               last={last ? { fileName: last.fileName, accepted: last.accepted, rejected: last.rejected, replaced: last.replaced, at: last.at.toISOString() } : null}
             />
           );

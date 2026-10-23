@@ -118,6 +118,8 @@ export const openPos = pgTable(
   "open_pos",
   {
     id: serial("id").primaryKey(),
+    /** `csv` for the manual upload, `zoho` for the API sync. Each source replaces only its own rows. */
+    source: text("source").notNull().default("csv"),
     skuId: text("sku_id").notNull(),
     qty: integer("qty").notNull(),
     expectedDate: date("expected_date", { mode: "string" }),
@@ -380,4 +382,88 @@ export const exportLog = pgTable(
     kind: text("kind").notNull(), // preview | download
   },
   (t) => [index("export_log_at_idx").on(t.at)],
+);
+
+// ---- Zoho Inventory connector
+
+export const zohoItems = pgTable("zoho_items", {
+  itemId: text("item_id").primaryKey(),
+  sku: text("sku"),
+  name: text("name").notNull(),
+  purchaseRate: doublePrecision("purchase_rate"),
+  vendorId: text("vendor_id"),
+  active: boolean("active").notNull().default(true),
+  syncedAt: ts("synced_at").notNull().defaultNow(),
+});
+
+export const zohoVendors = pgTable("zoho_vendors", {
+  vendorId: text("vendor_id").primaryKey(),
+  name: text("name").notNull(),
+  active: boolean("active").notNull().default(true),
+  syncedAt: ts("synced_at").notNull().defaultNow(),
+});
+
+/** Manual override: which Zoho item is this SKU. Without a row, the Zoho item whose `sku` equals our SKU_ID is used. */
+export const zohoItemMap = pgTable("zoho_item_map", {
+  skuId: text("sku_id").primaryKey(),
+  itemId: text("item_id").notNull(),
+  setBy: uuid("set_by"),
+  at: ts("at").notNull().defaultNow(),
+});
+
+/** Which Zoho vendor each `Distributor_ID` on the SKU master is ordered from. */
+export const zohoVendorMap = pgTable("zoho_vendor_map", {
+  distributorId: text("distributor_id").primaryKey(),
+  vendorId: text("vendor_id").notNull(),
+  setBy: uuid("set_by"),
+  at: ts("at").notNull().defaultNow(),
+});
+
+export const zohoPurchaseOrders = pgTable(
+  "zoho_purchase_orders",
+  {
+    poId: text("po_id").primaryKey(),
+    number: text("number").notNull(),
+    vendorId: text("vendor_id"),
+    status: text("status").notNull(),
+    total: doublePrecision("total"),
+    deliveryDate: text("delivery_date"),
+    lines: jsonb("lines").$type<{ itemId: string; quantity: number; received: number }[]>(),
+    listSyncedAt: ts("list_synced_at").notNull().defaultNow(),
+    detailSyncedAt: ts("detail_synced_at"),
+  },
+  (t) => [index("zoho_po_status_idx").on(t.status)],
+);
+
+export const zohoSyncLog = pgTable(
+  "zoho_sync_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: ts("at").notNull().defaultNow(),
+    trigger: text("trigger").notNull(),
+    ok: boolean("ok").notNull(),
+    calls: integer("calls").notNull().default(0),
+    detail: jsonb("detail").$type<Record<string, unknown>>().notNull().default({}),
+    error: text("error"),
+  },
+  (t) => [index("zoho_sync_at_idx").on(t.at)],
+);
+
+/** One row per draft PO we tried to create. The unique reference is what stops a retry from creating it twice. */
+export const zohoPushLog = pgTable(
+  "zoho_push_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    at: ts("at").notNull().defaultNow(),
+    runId: uuid("run_id").notNull(),
+    vendorId: text("vendor_id").notNull(),
+    reference: text("reference").notNull(),
+    status: text("status").notNull(), // pending | created | failed | unconfirmed
+    zohoPoId: text("zoho_po_id"),
+    zohoPoNumber: text("zoho_po_number"),
+    lines: jsonb("lines").$type<{ skuId: string; itemId: string; qty: number; rate: number }[]>().notNull(),
+    error: text("error"),
+    userId: uuid("user_id"),
+  },
+  (t) => [uniqueIndex("zoho_push_reference_idx").on(t.reference), index("zoho_push_run_idx").on(t.runId)],
 );

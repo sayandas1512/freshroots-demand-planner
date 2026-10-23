@@ -51,6 +51,8 @@ A run with no progress for 30 minutes is marked failed the next time anyone star
 
 **Two people pressed Run now.** Safe. Only one run can be active (database lock), and the same date within 10 minutes returns the existing run.
 
+**Zoho sync failing.** Health > System status shows the Zoho line; the Zoho page shows the error. The run still completes using the last synced open POs and says so. See `docs/ZOHO.md` ("If something is wrong"). To refresh by hand press **Sync now** on the Zoho page. A draft PO marked **unconfirmed** needs a person to look in Zoho before anything is retried.
+
 ## 4. Re-running and restoring settings
 
 - **Re-run:** Review > Run date > Run now. Choose the date the data is for (default today in IST).

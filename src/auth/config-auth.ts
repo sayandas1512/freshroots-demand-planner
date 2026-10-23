@@ -1,7 +1,7 @@
 import type { RuleConfig } from "@/engine/config";
 import { can, type Permission, type Role } from "./roles";
 
-const MODE_KEYS: (keyof RuleConfig)[] = ["mode"];
+const MODE_KEYS: (keyof RuleConfig)[] = ["mode", "zoho_push_enabled"];
 const KILL_KEYS: (keyof RuleConfig)[] = [
   "indicator_kill_pct",
   "indicator_warn_pct",
