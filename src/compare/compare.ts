@@ -2,20 +2,20 @@ import { and, inArray, ne } from "drizzle-orm";
 import { compareLines, summarise, type BacktestRow, type BacktestSummary, type OrdersByWeek, type SystemLine } from "@/backtest/compare";
 import type { Db } from "@/db/client";
 import { exceptions, recommendations, runs, skus } from "@/db/schema";
-import { ordersFromShadowRows } from "./orders";
+import { ordersFromForecastRows } from "./orders";
 
-export { ordersFromShadowRows };
+export { ordersFromForecastRows };
 
-export interface ShadowRow extends BacktestRow {
+export interface CompareRow extends BacktestRow {
   skuName: string;
   /** The system's reason for the line it chose, or the exception detail. */
   reason: string;
   runId: string | null;
 }
 
-export interface ShadowResult {
+export interface CompareResult {
   periods: string[];
-  rows: ShadowRow[];
+  rows: CompareRow[];
   summary: BacktestSummary;
   notes: string[];
 }
@@ -23,11 +23,11 @@ export interface ShadowResult {
 const isReorder = (action: string) => action === "REORDER_NOW" || action === "REORDER_1_5X";
 
 /**
- * Compare the system's shadow runs with Raghav's own monthly forecast or orders. For a month, the system "orders" a SKU
+ * Compare the system's runs with Raghav's own monthly forecast or orders. For a month, the system "orders" a SKU
  * if any completed run in that month recommended a reorder (largest quantity wins); otherwise its latest run's line is
  * used. Comparison is order or not, using the same code as the backtest.
  */
-export async function shadowComparison(db: Db, orders: OrdersByWeek): Promise<ShadowResult> {
+export async function forecastComparison(db: Db, orders: OrdersByWeek): Promise<CompareResult> {
   const periods = [...orders.keys()].sort();
   const notes: string[] = [];
   const names = new Map((await db.select({ id: skus.skuId, name: skus.name }).from(skus)).map((s) => [s.id, s.name]));
@@ -63,7 +63,7 @@ export async function shadowComparison(db: Db, orders: OrdersByWeek): Promise<Sh
     }
   }
 
-  const rows: ShadowRow[] = compareLines(lines, orders).map((r) => ({ ...r, skuName: names.get(r.skuId) ?? r.skuId, reason: meta.get(`${r.week}|${r.skuId}`)?.reason ?? "", runId: meta.get(`${r.week}|${r.skuId}`)?.runId ?? null }));
+  const rows: CompareRow[] = compareLines(lines, orders).map((r) => ({ ...r, skuName: names.get(r.skuId) ?? r.skuId, reason: meta.get(`${r.week}|${r.skuId}`)?.reason ?? "", runId: meta.get(`${r.week}|${r.skuId}`)?.runId ?? null }));
   return { periods, rows, summary: summarise(rows), notes };
 }
 

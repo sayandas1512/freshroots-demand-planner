@@ -8,16 +8,16 @@ import { currentActor } from "@/auth/actor";
 import { can } from "@/auth/roles";
 import { getDb } from "@/db/client";
 import { killState } from "@/db/schema";
-import { goLiveReadiness } from "@/golive/readiness";
 import { decisionStats } from "@/kill/gather";
 import { previewKill } from "@/kill/run";
 import { getKillState } from "@/kill/state";
-import { getActiveConfig } from "@/run/config-store";
 import { systemHealth } from "@/run/healthcheck";
+import { ensureMeasurementStart } from "@/run/measurement";
+import { todayIst } from "@/lib/dates";
 import { compareToRange, formatLakh } from "@/run/baseline";
 import { loadHealth, type HealthRun } from "@/run/health";
 import { BaselineForm } from "./BaselineForm";
-import { GoLiveChecklist } from "./GoLiveChecklist";
+import { RunKillCheckButton } from "./KillPanel";
 import { SystemStatus } from "./SystemStatus";
 import { ClearKillForm } from "./KillPanel";
 
@@ -52,16 +52,15 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
   const params = await searchParams;
   const q = (Array.isArray(params.q) ? params.q[0] : params.q) ?? "";
   const db = await getDb();
-  const [h, kill, killCheck, readiness, active, actor, history, timing, sys] = await Promise.all([
+  const [h, kill, killCheck, actor, history, timing, sys, since] = await Promise.all([
     loadHealth(db, q.slice(0, 100)),
     getKillState(db),
     previewKill(db),
-    goLiveReadiness(db),
-    getActiveConfig(db),
     currentActor(),
     db.select().from(killState).orderBy(desc(killState.at)).limit(8),
     decisionStats(db, 4),
     systemHealth(db),
+    ensureMeasurementStart(db, todayIst()),
   ]);
   const role = actor?.role ?? null;
   const chronological = [...h.runs].reverse();
@@ -99,14 +98,14 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
         <div className="log-head">
           <h2 id="kill-h">Kill switch and criteria</h2>
           <span className={`chip ${kill.active ? "chip-stockout" : "chip-hold"}`} data-testid="kill-status">{kill.active ? "ON: system stopped" : "Off"}</span>
-          <span className={`chip ${active.config.mode === "shadow" ? "chip-demand" : "chip-hold"}`}>{active.config.mode === "shadow" ? "SHADOW mode" : "LIVE mode"}</span>
+          <span className="chip chip-plain" data-testid="measure-since">Measuring since {since}</span>
         </div>
+        {can(role, "run") ? <RunKillCheckButton /> : null}
         {kill.active ? (
           <div className="banner banner-bad" role="status"><span><strong>Stopped.</strong> {kill.reason} Set by {kill.by} on {new Date(kill.since as string).toLocaleString("en-IN")}.</span></div>
         ) : null}
         {kill.active && can(role, "clearKill") ? <ClearKillForm /> : null}
         {kill.active && !can(role, "clearKill") ? <p className="small muted">Only the sponsor or an admin can clear the kill switch.</p> : null}
-        {active.config.mode === "shadow" ? <p className="small muted">Shadow mode: the quarterly loss, weekly indicator and override tests are not evaluated. Only the rubber-stamp warning runs.</p> : null}
         <div className="table-wrap">
           <table className="data" data-testid="kill-criteria">
             <thead><tr><th>Criterion</th><th>Current value</th><th>Threshold</th><th>Status</th><th>Notes</th></tr></thead>
@@ -131,12 +130,6 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
             </ul>
           </details>
         ) : null}
-      </section>
-
-      <section className="card section" aria-labelledby="golive-h" data-testid="golive-section">
-        <h2 id="golive-h">Go-live checklist</h2>
-        <p className="muted small">Mode changes to live only when every item is ticked by a named user and the sponsor saves the change on Settings. {readiness.ready ? "All items are ticked." : `${readiness.missing.length} still open.`}</p>
-        <GoLiveChecklist readiness={readiness} role={role ?? ""} canTick={can(role, "goLive")} />
       </section>
 
       <section className="grid grid-4" aria-label="Key figures">

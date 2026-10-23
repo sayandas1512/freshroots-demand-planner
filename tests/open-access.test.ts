@@ -34,7 +34,7 @@ describe("open access (demonstration and marking)", () => {
     const a = await actorFromHeaders(null, undefined, { env: env({ OPEN_ACCESS: "1" }), db });
     expect(a).toMatchObject({ role: "admin", system: false, guest: true });
     expect(a?.userId).toBeTruthy();
-    for (const perm of ["decide", "run", "upload", "export", "stop", "clearKill", "setMode", "editKill", "editRules", "outcomes", "goLive", "backtest"] as const) expect(can(a?.role, perm), perm).toBe(true);
+    for (const perm of ["decide", "run", "upload", "export", "stop", "clearKill", "editSwitches", "editKill", "editRules", "outcomes", "backtest"] as const) expect(can(a?.role, perm), perm).toBe(true);
     const [guest] = await db.select().from(users).where(eq(users.email, GUEST_EMAIL));
     expect(guest).toMatchObject({ name: "Guest", role: "admin", active: true });
   });

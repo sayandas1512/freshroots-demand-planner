@@ -6,17 +6,16 @@ import { getUser } from "@/auth/users";
 import { Nav } from "@/components/Nav";
 import { getDb } from "@/db/client";
 import { getKillState } from "@/kill/state";
-import { getActiveConfig } from "@/run/config-store";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await currentActor();
   if (!actor && !publicViewEnabled()) redirect("/login");
   const db = await getDb();
-  const [user, kill, active] = await Promise.all([actor?.userId ? getUser(db, actor.userId) : null, getKillState(db), getActiveConfig(db)]);
+  const [user, kill] = await Promise.all([actor?.userId ? getUser(db, actor.userId) : null, getKillState(db)]);
   return (
     <>
       <a href="#main" className="sr-only">Skip to content</a>
-      <Nav userName={user?.name ?? "System"} role={actor?.role ?? null} mode={active.config.mode} killed={kill.active} guest={actor?.guest === true} />
+      <Nav userName={user?.name ?? "System"} role={actor?.role ?? null} killed={kill.active} guest={actor?.guest === true} />
       {actor?.guest ? (
         <div className="banner banner-warn view-banner" role="note" data-testid="guest-banner">
           <span><strong>Open access.</strong> Anyone with this link can approve, run, export and use the kill switch as a guest administrator; actions are logged as &quot;Guest&quot;. This is for demonstration and marking: do not use it with real data. <Link href="/login">Sign in</Link> to act under your own name.</span>

@@ -63,7 +63,7 @@ A run with no progress for 30 minutes is marked failed the next time anyone star
 
 1. Do not wait silently: the run still happens on Monday and Thursday and will show the stale-data banner.
 2. Ask the data analyst (Priya) to upload what is available on **Data** (sales, stock, SKU master, distributors). Each file validates on its own; rejected rows are listed with reasons and the good rows still load. Uploading the same file twice is safe.
-3. If stock is the late file, Raghav decides whether to wait for a rerun or to review with the banner on. Nothing is exported without his approval, and the export is blocked in shadow mode anyway.
+3. If stock is the late file, Raghav decides whether to wait for a rerun or to review with the banner on. Nothing is exported without his approval.
 4. Tell the sponsor if two runs in a row are degraded for this reason.
 
 ## 6. The kill switch
@@ -78,15 +78,15 @@ A run with no progress for 30 minutes is marked failed the next time anyone star
 3. Override rate above 50% across 4 consecutive completed live runs (edited + rejected over decided lines; exceptions do not count).
 4. Rubber-stamp warning (override rate below 2% and median decision time under 5 s across 4 runs). Warns only.
 
-Tests 1 to 3 are not evaluated in shadow mode. All thresholds are starting proposals that the sponsor must confirm.
+All thresholds are starting proposals that the sponsor must confirm. Tests 2 and 3 need data: weekly outcomes and a frozen baseline (Outcomes page), and decided lines. Until then they show "no data" and cannot trip.
 
 **Clear it:** Health > Kill switch and criteria. Only the sponsor or an admin can clear it, with a written note. The history (who, when, why) is kept.
 
-**Kill drill (go-live gate):** (1) press Stop, give a reason, check the banner, check Run now is refused and the export returns 423; (2) clear it with a note; (3) trip by a simulated breach: on a test database enter four live weeks of outcomes at 30% above the baseline across two checks, or run `npx vitest run tests/mode-kill.test.ts`; (4) clear it again. Tick "Kill drill done" on the go-live checklist.
+**Kill drill:** (1) press Stop, give a reason, check the banner, check Run now is refused and the export returns 423; (2) clear it with a note; (3) trip it by a simulated breach: upload `fixtures/outcomes_breach.csv`, press **Run the kill check now** on Health (a warning), upload `fixtures/outcomes_breach_next_week.csv`, run it again (it stops); (4) clear it again.
 
-## 7. Going live
+## 7. Measurement start and the baseline
 
-Health > Go-live checklist: each item is ticked by a named user. When all are ticked (and 8 weeks of weekly outcomes exist), the **sponsor** (or an admin) changes **Operating mode** to **Live** on Settings with a note. That records the go-live date and freezes the 8 weekly baseline weeks. Going back to shadow is the same screen.
+There is no go-live gate: results are judged from the measurement start date, shown on Health and Outcomes. It is set automatically the first time the system is used. When real data replaces sample data, load the real weekly outcomes (Outcomes page) and have the sponsor or an admin **Restart measurement** from the date real use began: the 8 weekly outcomes before it become the new frozen baseline.
 
 ## 8. Users and secrets
 

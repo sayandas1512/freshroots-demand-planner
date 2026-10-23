@@ -1,7 +1,7 @@
 import type { RuleConfig } from "@/engine/config";
 import { can, type Permission, type Role } from "./roles";
 
-const MODE_KEYS: (keyof RuleConfig)[] = ["mode", "zoho_push_enabled"];
+const SWITCH_KEYS: (keyof RuleConfig)[] = ["zoho_push_enabled"];
 const KILL_KEYS: (keyof RuleConfig)[] = [
   "indicator_kill_pct",
   "indicator_warn_pct",
@@ -13,11 +13,11 @@ const KILL_KEYS: (keyof RuleConfig)[] = [
   "rubber_runs",
 ];
 
-/** Which permission each changed setting needs: the mode and kill thresholds belong to the sponsor, rules to the planner. */
+/** Which permission each changed setting needs: the kill thresholds and switches belong to the sponsor, rules to the planner. */
 export function permissionsFor(changed: readonly (keyof RuleConfig)[]): Permission[] {
   const need = new Set<Permission>();
   for (const key of changed) {
-    if (MODE_KEYS.includes(key)) need.add("setMode");
+    if (SWITCH_KEYS.includes(key)) need.add("editSwitches");
     else if (KILL_KEYS.includes(key)) need.add("editKill");
     else need.add("editRules");
   }

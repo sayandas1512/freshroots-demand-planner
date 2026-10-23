@@ -18,7 +18,6 @@ import { useRunEvents } from "./useRunEvents";
 interface Props {
   data: ReviewData | null;
   today: string;
-  mode: "shadow" | "live";
   killed: boolean;
   canDecide: boolean;
   canExport: boolean;
@@ -45,7 +44,7 @@ function keepRowVisible(el: HTMLElement, index: number): void {
   else if (top + ROW_HEIGHT > el.scrollTop + el.clientHeight) el.scrollTop = top + ROW_HEIGHT - el.clientHeight;
 }
 
-export function ReviewClient({ data, today, mode, killed, canDecide, canExport, canRun }: Props) {
+export function ReviewClient({ data, today, killed, canDecide, canExport, canRun }: Props) {
   const locked = killed || !canDecide;
   const router = useRouter();
   const [rows, setRows] = useState<ReviewRow[]>(data?.rows ?? []);
@@ -360,7 +359,7 @@ export function ReviewClient({ data, today, mode, killed, canDecide, canExport, 
     <>
       <div className="page-head">
         <div>
-          <h1>Review {mode === "shadow" ? <span className="chip chip-demand shadow-title">SHADOW</span> : null}</h1>
+          <h1>Review</h1>
           {run ? (
             <p>
               Run for <strong className="num">{run.asOf}</strong> · rules v{run.configVersion ?? "?"} · festival uplift mode <code>{run.festivalMode ?? "cover_demand"}</code> · {run.trigger === "cron" ? "scheduled" : "started manually"}
@@ -389,7 +388,6 @@ export function ReviewClient({ data, today, mode, killed, canDecide, canExport, 
       <div className="sr-only" role="status" aria-live="polite" data-testid="live-region">{announce}</div>
 
       {locked && !killed ? <div className="banner banner-info" role="note"><span>You have read-only access to Review. Only a planner or admin can approve, edit or reject lines.</span></div> : null}
-      {mode === "shadow" ? <div className="banner banner-warn" role="note" data-testid="shadow-banner"><span><strong>Shadow mode.</strong> Runs, sheets and reviews work and your overrides are logged, but the purchase-order export is blocked until go-live.</span></div> : null}
       {message ? <div className="banner banner-info" role="status"><span>{message}</span></div> : null}
       {run?.status === "failed" ? <div className="banner banner-bad" role="alert"><span><strong>This run failed.</strong> {run.notes.at(-1) ?? "See the runbook in the README."}</span></div> : null}
       {run?.status === "completed_degraded" ? (
@@ -532,9 +530,7 @@ export function ReviewClient({ data, today, mode, killed, canDecide, canExport, 
             <span className="num" data-testid="decided-count"><strong>{decided}</strong> of <strong>{rows.length}</strong> decided</span>
             <span className="small muted num">{countBy("approved")} approved · {countBy("edited")} edited · {countBy("rejected")} rejected{exceptions.length > 0 ? ` · ${openExceptions} exceptions open` : ""}</span>
             <span className="shell-spacer" />
-            {mode === "shadow" ? (
-              <button type="button" className="btn btn-primary" disabled data-testid="export-link" title="Shadow mode: runs and reviews work, but nothing goes to procurement">Export blocked: shadow mode</button>
-            ) : killed ? (
+            {killed ? (
               <button type="button" className="btn btn-primary" disabled data-testid="export-link">Export stopped: kill switch</button>
             ) : !canExport ? (
               <button type="button" className="btn btn-primary" disabled data-testid="export-link" title="Only a planner or admin can export">Export (planner only)</button>

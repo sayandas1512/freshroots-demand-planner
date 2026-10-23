@@ -18,7 +18,7 @@ describe("public view (anyone with the link, read-only)", () => {
   });
 
   it("when on, lets through only GETs of pages, the run progress stream and the health check", () => {
-    for (const path of ["/", "/settings", "/health", "/data", "/outcomes", "/zoho", "/backtest", "/shadow", `/export`]) {
+    for (const path of ["/", "/settings", "/health", "/data", "/outcomes", "/zoho", "/backtest", "/compare", `/export`]) {
       expect(isPublicViewRequest("GET", path, true), path).toBe(true);
       expect(isPublicViewRequest("HEAD", path, true), path).toBe(true);
     }
@@ -32,13 +32,13 @@ describe("public view (anyone with the link, read-only)", () => {
         expect(isPublicViewRequest(method, path, true), `${method} ${path}`).toBe(false);
       }
     }
-    for (const path of ["/api/export/approved", "/api/backtest/export", "/api/cron/run", "/api/cron/kill-check", "/api/run", "/api/shadow", "/api/outcomes/weekly", `/api/run/${RUN}/advance`, "/api/run/not-a-uuid/events", "/api/health/extra"]) {
+    for (const path of ["/api/export/approved", "/api/backtest/export", "/api/cron/run", "/api/cron/kill-check", "/api/run", "/api/compare", "/api/outcomes/weekly", `/api/run/${RUN}/advance`, "/api/run/not-a-uuid/events", "/api/health/extra"]) {
       expect(isPublicViewRequest("GET", path, true), path).toBe(false);
     }
   });
 
   it("an anonymous visitor has no permission except to view", () => {
-    for (const perm of ["decide", "run", "upload", "editRules", "setMode", "editKill", "clearKill", "stop", "outcomes", "goLive", "export", "backtest", "manageUsers"] as const) {
+    for (const perm of ["decide", "run", "upload", "editRules", "editSwitches", "editKill", "clearKill", "stop", "outcomes", "export", "backtest", "manageUsers"] as const) {
       expect(can(null, perm), perm).toBe(false);
     }
     expect(can(null, "view")).toBe(false); // route guards still ask for a session; the pages themselves are what is public

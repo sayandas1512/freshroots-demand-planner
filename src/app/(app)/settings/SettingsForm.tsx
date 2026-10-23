@@ -62,7 +62,7 @@ const GROUPS: { title: string; note?: string; fields: FieldDef[] }[] = [
   },
   {
     title: "Kill and warning thresholds",
-    note: "Starting proposals. The sponsor must confirm them before go-live. Only the sponsor or an admin can change them.",
+    note: "Starting proposals. The sponsor must confirm them before they are relied on. Only the sponsor or an admin can change them.",
     fields: [
       { key: "indicator_kill_pct", perm: "kill", label: "Weekly indicators: kill when more than this % worse", help: "4-week average of stockout incidents, or of overstock value, against the frozen 8-week baseline.", step: 1 },
       { key: "indicator_warn_pct", perm: "kill", label: "Weekly indicators: warn at this % worse", help: "A warning only.", step: 1 },
@@ -103,7 +103,7 @@ const TOGGLES: { key: "enable_distributor_exceptions" | "enable_lead_time_flag" 
   { key: "enable_moq_flag", label: "Minimum order quantity flag", help: "Informational flag when the recommended quantity is below the SKU's MOQ. Needs moq on the SKU master." },
 ];
 
-export function SettingsForm({ active, history, perms }: { active: { version: number; config: RuleConfig }; history: HistoryItem[]; perms: { editRules: boolean; editKill: boolean; setMode: boolean } }) {
+export function SettingsForm({ active, history, perms }: { active: { version: number; config: RuleConfig }; history: HistoryItem[]; perms: { editRules: boolean; editKill: boolean; editSwitches: boolean } }) {
   const router = useRouter();
   const [draft, setDraft] = useState<RuleConfig>(active.config);
   const [note, setNote] = useState("");
@@ -161,24 +161,13 @@ export function SettingsForm({ active, history, perms }: { active: { version: nu
   return (
     <div className="settings-layout">
       <div className="settings-fields">
-        <fieldset className="card fieldset" disabled={!perms.setMode} data-testid="mode-group">
-          <legend><h2>Operating mode</h2></legend>
-          <div className="mode-list" role="radiogroup" aria-label="Operating mode">
-            {(["shadow", "live"] as const).map((m) => (
-              <label key={m} className="mode" data-selected={draft.mode === m}>
-                <input type="radio" name="op-mode" value={m} checked={draft.mode === m} onChange={() => { setPreview(null); setDraft((d) => ({ ...d, mode: m })); }} data-testid={`op-mode-${m}`} />
-                <span>
-                  <strong>{m === "shadow" ? "Shadow" : "Live"}</strong>
-                  <span className="hint block">{m === "shadow" ? "Runs, sheets, reviews and overrides all work. The purchase-order export is blocked. Used for the first weeks to compare with Raghav's own forecast." : "The export works. Switching to live needs the go-live checklist on the Health page to be complete, and freezes the weekly baseline."}</span>
-                </span>
-              </label>
-            ))}
-          </div>
+        <fieldset className="card fieldset" disabled={!perms.editSwitches} data-testid="switch-group">
+          <legend><h2>Sponsor switches</h2></legend>
           <label className="check">
             <input type="checkbox" checked={draft.zoho_push_enabled} onChange={(e) => { setPreview(null); setDraft((d) => ({ ...d, zoho_push_enabled: e.target.checked })); }} data-testid="cfg-zoho_push_enabled" />
-            <span><strong>Allow creating draft purchase orders in Zoho</strong><span className="hint block">Off by default. When on, the planner can send approved lines to Zoho as drafts from the Export preview. Drafts are never issued by the system. Needs the Zoho connector and live mode.</span></span>
+            <span><strong>Allow creating draft purchase orders in Zoho</strong><span className="hint block">Off by default. When on, the planner can send approved lines to Zoho as drafts from the Export preview. Drafts are never issued by the system. Needs the Zoho connector.</span></span>
           </label>
-          {!perms.setMode ? <p className="small muted">Only the sponsor or an admin can change the mode and this switch.</p> : null}
+          {!perms.editSwitches ? <p className="small muted">Only the sponsor or an admin can change this switch.</p> : null}
         </fieldset>
 
         {GROUPS.map((g) => (

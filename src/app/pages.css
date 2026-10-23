@@ -76,3 +76,5 @@ details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .clear-kill .grow { flex: 1; min-width: 280px; }
 .checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
 .checklist li { border-bottom: 1px solid var(--border); padding-bottom: var(--s-3); }
+
+.kill-check-run { display: flex; gap: var(--s-3); align-items: center; flex-wrap: wrap; }

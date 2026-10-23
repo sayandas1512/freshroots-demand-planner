@@ -1,16 +1,13 @@
-import type { OperatingMode } from "@/engine/config";
-
 /**
  * The kill test, as one pure function. Thresholds are starting proposals that the sponsor must confirm
  * (see ASSUMPTIONS.md). Nothing here touches the database: `gatherKillInput` builds the input.
  *
- * 1. Quarterly loss (stockout loss + write-offs) above the baseline's high figure, after a full quarter in live mode.
+ * 1. Quarterly loss (stockout loss + write-offs) above the baseline's high figure, after a full quarter since measurement started.
  *    A month above one third of that figure is a warning only.
  * 2. Weekly indicators (stockout incidents, overstock value): 4-week average more than `killPct` worse than the frozen
  *    8-week baseline at `consecutiveChecks` consecutive checks kills; more than `warnPct` warns.
  * 3. Override rate above `overrideKillRate` across `overrideKillRuns` consecutive completed runs kills.
  * 4. Rubber stamping (very low override rate and very fast decisions across `rubberRuns` runs) warns, never kills.
- * In shadow mode criteria 1 to 3 are not evaluated; criterion 4 still is.
  */
 
 export type CriterionStatus = "ok" | "warn" | "kill" | "no_data" | "not_evaluated";
@@ -33,7 +30,6 @@ export interface RunStat {
 }
 
 export interface KillInput {
-  mode: OperatingMode;
   thresholds: {
     indicatorKillPct: number;
     indicatorWarnPct: number;
@@ -46,9 +42,9 @@ export interface KillInput {
   };
   /** Upper end of the quarterly baseline range, in INR. */
   baselineHighInr: number | null;
-  /** Latest full quarter that began in live mode, with all three months entered. */
+  /** Latest full quarter that began after measurement started, with all three months entered. */
   quarter: { period: string; outcomeInr: number; lastYearInr: number | null } | null;
-  /** Latest month entered since go-live. */
+  /** Latest month entered since measurement started. */
   month: { period: string; outcomeInr: number } | null;
   weekly: {
     baseline: { stockout: number; overstockValue: number } | null;
@@ -57,7 +53,7 @@ export interface KillInput {
     /** Earlier checks on different weeks, newest first. */
     history: { latestWeek: string; stockout: Level; overstock: Level }[];
   };
-  /** Completed runs in live mode, newest first. */
+  /** Completed runs since measurement started, newest first. */
   liveRuns: RunStat[];
   /** Completed runs, any mode, newest first. */
   allRuns: RunStat[];
@@ -91,16 +87,13 @@ function levelFor(worse: number, killPct: number, warnPct: number): Level {
 
 export function executeKillCheck(input: KillInput): KillResult {
   const t = input.thresholds;
-  const shadow = input.mode === "shadow";
   const criteria: Criterion[] = [];
   const high = input.baselineHighInr;
-  const SHADOW_NOTE = "Not evaluated in shadow mode.";
 
   // 1a. quarterly loss
   const qThreshold = high === null ? "no baseline range" : `above ${lakh(high)}`;
-  if (shadow) criteria.push(skip("quarter_loss", "Quarterly loss", qThreshold, "not_evaluated", SHADOW_NOTE));
-  else if (high === null) criteria.push(skip("quarter_loss", "Quarterly loss", qThreshold, "no_data", "No baseline range is set."));
-  else if (!input.quarter) criteria.push(skip("quarter_loss", "Quarterly loss", qThreshold, "no_data", "No full quarter in live mode with all three months entered yet."));
+  if (high === null) criteria.push(skip("quarter_loss", "Quarterly loss", qThreshold, "no_data", "No baseline range is set."));
+  else if (!input.quarter) criteria.push(skip("quarter_loss", "Quarterly loss", qThreshold, "no_data", "No full quarter since measurement started with all three months entered yet."));
   else {
     const over = input.quarter.outcomeInr > high;
     const lastYear = input.quarter.lastYearInr === null ? "No figure for the same quarter last year." : `Same quarter last year: ${lakh(input.quarter.lastYearInr)} (festival quarters and supplier problems can move losses on their own).`;
@@ -109,8 +102,7 @@ export function executeKillCheck(input: KillInput): KillResult {
 
   // 1b. monthly loss, warning only
   const mThreshold = high === null ? "no baseline range" : `above ${lakh(high / 3)}`;
-  if (shadow) criteria.push(skip("month_loss", "Monthly loss", mThreshold, "not_evaluated", SHADOW_NOTE));
-  else if (high === null || !input.month) criteria.push(skip("month_loss", "Monthly loss", mThreshold, "no_data", "No month entered since go-live."));
+  if (high === null || !input.month) criteria.push(skip("month_loss", "Monthly loss", mThreshold, "no_data", "No month entered since measurement started."));
   else {
     criteria.push({ id: "month_loss", label: "Monthly loss", status: input.month.outcomeInr > high / 3 ? "warn" : "ok", value: `${lakh(input.month.outcomeInr)} in ${input.month.period}`, threshold: mThreshold, detail: "A warning only: one month does not trip the switch." });
   }
@@ -122,7 +114,6 @@ export function executeKillCheck(input: KillInput): KillResult {
   const levels: KillResult["levels"] = { stockout: "none", overstock: "none" };
   const indicator = (id: "indicator_stockout" | "indicator_overstock", label: string, pick: (r: (typeof w.recent)[number]) => number, base: number | undefined, key: "stockout" | "overstock") => {
     const threshold = `more than ${t.indicatorKillPct}% worse at ${t.indicatorConsecutiveChecks} consecutive checks (warn at ${t.indicatorWarnPct}%)`;
-    if (shadow) return skip(id, label, threshold, "not_evaluated", SHADOW_NOTE);
     if (base === undefined) return skip(id, label, threshold, "no_data", "The weekly baseline has not been frozen yet.");
     if (last4.length < 4) return skip(id, label, threshold, "no_data", `Needs 4 live weeks of outcomes; ${last4.length} entered.`);
     const avg = last4.reduce((a, r) => a + pick(r), 0) / 4;
@@ -145,8 +136,7 @@ export function executeKillCheck(input: KillInput): KillResult {
 
   // 3. overrides
   const oThreshold = `above ${(t.overrideKillRate * 100).toFixed(0)}% across ${t.overrideKillRuns} consecutive runs`;
-  if (shadow) criteria.push(skip("overrides", "Override rate", oThreshold, "not_evaluated", SHADOW_NOTE));
-  else if (input.liveRuns.length < t.overrideKillRuns) criteria.push(skip("overrides", "Override rate", oThreshold, "no_data", `Needs ${t.overrideKillRuns} completed live runs; ${input.liveRuns.length} so far.`));
+  if (input.liveRuns.length < t.overrideKillRuns) criteria.push(skip("overrides", "Override rate", oThreshold, "no_data", `Needs ${t.overrideKillRuns} completed runs since measurement started; ${input.liveRuns.length} so far.`));
   else {
     const window = input.liveRuns.slice(0, t.overrideKillRuns);
     const allOver = window.every((r) => r.overrideRate !== null && r.overrideRate > t.overrideKillRate);
@@ -154,7 +144,7 @@ export function executeKillCheck(input: KillInput): KillResult {
     criteria.push({ id: "overrides", label: "Override rate", status: allOver ? "kill" : "ok", value: latest === null ? "nothing decided in the latest run" : `${pct(latest * 100)} in the latest run`, threshold: oThreshold, detail: "Exceptions are not counted. Override rate is (edited + rejected) over decided lines." });
   }
 
-  // 4. rubber stamping (warning only, also checked in shadow)
+  // 4. rubber stamping (warning only)
   const rThreshold = `override rate below ${(t.rubberOverrideRate * 100).toFixed(0)}% and median under ${t.rubberMedianSeconds}s across ${t.rubberRuns} runs`;
   if (input.allRuns.length < t.rubberRuns) criteria.push(skip("rubber_stamp", "Rubber-stamp warning", rThreshold, "no_data", `Needs ${t.rubberRuns} completed runs; ${input.allRuns.length} so far.`));
   else {

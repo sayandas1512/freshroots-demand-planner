@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 
 interface Props {
   canEdit: boolean;
+  canRestart: boolean;
+  since: string;
   weekly: { week: string; stockout: number; overstock: number; source: string }[];
   monthly: { period: string; stockoutLoss: number; writeoff: number; method: string }[];
   frozen: { week: string; stockout: number; overstock: number; at: string }[];
@@ -13,7 +15,7 @@ interface Props {
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-export function OutcomesClient({ canEdit, weekly, monthly, frozen, methodChanges }: Props) {
+export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, frozen, methodChanges }: Props) {
   const router = useRouter();
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -61,6 +63,13 @@ export function OutcomesClient({ canEdit, weekly, monthly, frozen, methodChanges
     void send("/api/outcomes/weekly", { method: "POST", body }, (j) => `${String(j.saved)} weeks saved, ${String(j.rejected)} rows rejected.`);
   }
 
+  function restart(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const startDate = String(new FormData(e.currentTarget).get("start"));
+    if (!confirm(`Judge results from ${startDate}? The 8 weekly outcomes before that date become the frozen baseline, replacing the current one.`)) return;
+    void send("/api/measurement", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ startDate }) }, (j) => `Measuring from ${String(j.startDate)}; ${String(j.frozenWeeks)} weeks frozen as the baseline.`);
+  }
+
   return (
     <>
       <div className="page-head">
@@ -69,6 +78,16 @@ export function OutcomesClient({ canEdit, weekly, monthly, frozen, methodChanges
           <p>The yardstick for the kill check. Weekly figures come from Priya&apos;s existing report (it already has both measures); monthly rupee losses come from finance. The loss method is recorded with every month so the comparison stays honest.</p>
         </div>
       </div>
+      <section className="card section" aria-labelledby="ms-h" data-testid="measurement-panel">
+        <h2 id="ms-h">Measurement start</h2>
+        <p className="muted small">Results are judged from <strong className="num" data-testid="measure-date">{since}</strong>. The 8 weekly outcomes before it are the frozen baseline the kill check compares against. The date is set automatically the first time the system is used; restart it when real data replaces sample data.</p>
+        {canRestart ? (
+          <form onSubmit={restart} className="baseline-form" aria-label="Restart measurement">
+            <label className="field">Measure from<input type="date" name="start" defaultValue={since} required /></label>
+            <button type="submit" className="btn btn-sm" disabled={busy} data-testid="restart-measurement">Restart measurement</button>
+          </form>
+        ) : <p className="small muted">Only the sponsor or an admin can restart measurement.</p>}
+      </section>
       {message ? <div className={`banner ${message.ok ? "banner-info" : "banner-bad"}`} role="status"><span>{message.text}</span></div> : null}
       {methodChanges.length > 0 ? (
         <div className="banner banner-warn" role="alert" data-testid="method-warning">
@@ -94,7 +113,7 @@ export function OutcomesClient({ canEdit, weekly, monthly, frozen, methodChanges
               </form>
             </>
           ) : <p className="small muted">Only the data analyst, sponsor or an admin can enter outcomes.</p>}
-          {weekly.length === 0 ? <div className="empty"><h3>No weeks yet</h3><p>Eight weeks before go-live give the frozen baseline.</p></div> : (
+          {weekly.length === 0 ? <div className="empty"><h3>No weeks yet</h3><p>Eight weeks before the measurement start give the frozen baseline.</p></div> : (
             <div className="table-wrap"><table className="data" data-testid="weekly-table"><thead><tr><th>Week</th><th className="r">Stockout incidents</th><th className="r">Overstock value</th><th>Source</th></tr></thead>
               <tbody>{weekly.map((w) => <tr key={w.week}><td className="num">{w.week}</td><td className="num r">{w.stockout}</td><td className="num r">{inr(w.overstock)}</td><td className="small muted">{w.source}</td></tr>)}</tbody></table></div>
           )}
@@ -120,7 +139,7 @@ export function OutcomesClient({ canEdit, weekly, monthly, frozen, methodChanges
 
       <section className="card section" aria-labelledby="fz-h">
         <h2 id="fz-h">Frozen weekly baseline</h2>
-        {frozen.length === 0 ? <p className="muted small">Not frozen yet. The 8 weeks before go-live are copied here when the mode changes from shadow to live, and are never edited after that.</p> : (
+        {frozen.length === 0 ? <p className="muted small">Not frozen yet. Enter or upload at least a few weeks before the measurement start, then restart measurement above to freeze them.</p> : (
           <div className="table-wrap"><table className="data" data-testid="frozen-table"><thead><tr><th>Week</th><th className="r">Stockout incidents</th><th className="r">Overstock value</th><th>Frozen</th></tr></thead>
             <tbody>{frozen.map((f) => <tr key={f.week}><td className="num">{f.week}</td><td className="num r">{f.stockout}</td><td className="num r">{inr(f.overstock)}</td><td className="small muted">{new Date(f.at).toLocaleString("en-IN")}</td></tr>)}</tbody></table></div>
         )}

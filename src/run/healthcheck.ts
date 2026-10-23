@@ -19,7 +19,6 @@ export interface SystemHealth {
   lastRun: { id: string; status: string; asOf: string; at: string } | null;
   files: { latestSalesWeek: string | null; latestInventoryDate: string | null; inventoryAgeDays: number | null; inventoryStale: boolean };
   kill: { active: boolean; reason: string | null };
-  mode: "shadow" | "live";
   llm: { provider: string | null; model: string | null; reachable: boolean | null; error?: string };
   zoho: { configured: boolean; lastSyncAt: string | null; lastSyncOk: boolean | null; ageMinutes: number | null; error: string | null };
 }
@@ -40,7 +39,7 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
   const ms = dbOk ? Date.now() - t0 : null;
   const llmKind = configuredProvider();
   if (!dbOk) {
-    return { overall: "down", checkedAt: now.toISOString(), db: { ok: false, ms: null }, lastRun: null, files: { latestSalesWeek: null, latestInventoryDate: null, inventoryAgeDays: null, inventoryStale: true }, kill: { active: false, reason: null }, mode: "shadow", llm: { provider: llmKind, model: null, reachable: null }, zoho: { configured: zohoConfig() !== null, lastSyncAt: null, lastSyncOk: null, ageMinutes: null, error: null } };
+    return { overall: "down", checkedAt: now.toISOString(), db: { ok: false, ms: null }, lastRun: null, files: { latestSalesWeek: null, latestInventoryDate: null, inventoryAgeDays: null, inventoryStale: true }, kill: { active: false, reason: null }, llm: { provider: llmKind, model: null, reachable: null }, zoho: { configured: zohoConfig() !== null, lastSyncAt: null, lastSyncOk: null, ageMinutes: null, error: null } };
   }
 
   const [lastRow] = await db.select().from(runs).where(ne(runs.trigger, "backtest")).orderBy(desc(runs.startedAt)).limit(1);
@@ -76,7 +75,6 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
     lastRun: lastRow ? { id: lastRow.id, status: lastRow.status, asOf: lastRow.asOfDate, at: lastRow.startedAt.toISOString() } : null,
     files: { latestSalesWeek: fresh.latestSalesWeek, latestInventoryDate: fresh.latestInventoryDate, inventoryAgeDays: age, inventoryStale: stale },
     kill: { active: kill.active, reason: kill.reason },
-    mode: config.mode,
     llm,
     zoho: { configured: zohoOn, lastSyncAt: zs?.at.toISOString() ?? null, lastSyncOk: zs?.ok ?? null, ageMinutes: zohoAge, error: zs?.error ?? null },
   };

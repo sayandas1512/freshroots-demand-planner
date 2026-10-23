@@ -15,7 +15,7 @@ export const maxDuration = 120;
 const body = z.object({ runId: z.string().uuid() });
 
 /**
- * Create DRAFT purchase orders in Zoho from the approved lines of a run. Same gates as the CSV export: live mode, kill
+ * Create DRAFT purchase orders in Zoho from the approved lines of a run. Same gates as the CSV export: kill
  * switch off, planner or admin role. Also needs the sponsor's "create draft purchase orders in Zoho" setting.
  */
 export async function POST(request: Request) {

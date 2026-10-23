@@ -181,7 +181,7 @@ describe("decisions, override log and export", () => {
   it("approve, edit and reject set the final state; edit and reject write the override log with reasons", async () => {
     const { runId, by } = await runWithLines();
     const approved = await applyDecision(db, by("SKU003").id, { action: "approve" });
-    expect(approved).toMatchObject({ status: "approved", finalQty: 500 });
+    expect(approved).toMatchObject({ status: "approved", finalQty: 300 });
     const edited = await applyDecision(db, by("SKU004").id, { action: "edit", qty: 300, reason: "Festival promo planned" });
     expect(edited).toMatchObject({ status: "edited", finalQty: 300, decidedNote: "Festival promo planned" });
     const rejected = await applyDecision(db, by("SKU011").id, { action: "reject", reason: "Distributor already holds stock" });
@@ -190,14 +190,14 @@ describe("decisions, override log and export", () => {
     const log = await db.select().from(overrides);
     expect(log.map((o) => [o.field, o.fromValue, o.toValue, o.reason]).sort()).toEqual(
       [
-        ["qty", "240", "300", "Festival promo planned"],
-        ["status", "REORDER_NOW 600", "rejected", "Distributor already holds stock"],
+        ["qty", "150", "300", "Festival promo planned"],
+        ["status", "REORDER_NOW 500", "rejected", "Distributor already holds stock"],
       ].sort(),
     );
 
     const lines = await approvedExportLines(db, runId);
     expect(lines.map((l) => [l.skuId, l.quantity])).toEqual([
-      ["SKU003", 500],
+      ["SKU003", 300],
       ["SKU004", 300],
     ]);
   });
@@ -226,7 +226,7 @@ describe("decisions, override log and export", () => {
     const csv = toPurchaseOrderCsv(await approvedExportLines(db, runId));
     const [header, row] = csv.trim().split("\r\n");
     expect(header).toBe("SKU_ID,SKU_Name,Quantity,Unit,Distributor_ID,Run_ID,Approved_At");
-    expect(row).toMatch(/^SKU003,Poha Thick 500g,500,case,D001,[0-9a-f-]{36},\d{4}-\d{2}-\d{2}T/);
+    expect(row).toMatch(/^SKU003,Freshroots Brown Rice 1kg,300,Units,DIST002,[0-9a-f-]{36},\d{4}-\d{2}-\d{2}T/);
 
     expect(neutraliseCell("=1+1")).toBe("'=1+1");
     expect(neutraliseCell("+SUM(A1)")).toBe("'+SUM(A1)");

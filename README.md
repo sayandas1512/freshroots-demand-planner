@@ -18,15 +18,15 @@ Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, 
 
 | Step | Box | Code |
 |---|---|---|
-| 01 | Raghav / Input: Settings page, rule thresholds and **shadow or live mode** | `src/app/(app)/settings`, `src/run/config-store.ts`, `src/run/mode.ts`, `src/engine/config.ts`, `src/auth/config-auth.ts` |
+| 01 | Raghav / Input: Settings page, rule thresholds, kill thresholds and the Zoho switch | `src/app/(app)/settings`, `src/run/config-store.ts`, `src/run/config-save.ts`, `src/engine/config.ts`, `src/auth/config-auth.ts` |
 | 02 | Timer and kill / Trigger: cron Mon and Thu 07:00 IST, Run-now, **kill switch checked first** | `vercel.json`, `src/app/api/cron/run`, `src/app/api/run`, `src/run/execute.ts` (`startRun` refuses while killed) |
 | 03 | Data / Context: SAP CSV drops (Priya), **Zoho open POs by API** (or CSV), rule settings, history | `src/ingest` (column names in `src/ingest/mapping.ts`), `src/zoho` (OAuth client, sync), `src/app/(app)/zoho`, `src/db`, `src/app/(app)/data`, `fixtures/`, `src/synthetic` |
 | 04 | Engine / Processing: clean, apply Raghav's rules, flag stockout and overstock, route exceptions | `src/engine` (pure TypeScript), `src/run/load.ts`, `src/run/machine.ts` (`prepare`) |
 | 05 | Engine / AI: reasons per flag and the run headline | `src/ai` (one provider interface: Gemini Flash, Anthropic; prompts, templates, guardrails, allow-list `payload.ts`) |
 | 06 | Engine / Output: draft sheet, saved before it is shown | `src/run/machine.ts` (one transaction in `prepare`), `recommendations` table |
 | 07 | Raghav / Output: approve, edit or reject each line | `src/app/(app)/page.tsx`, `src/components/review`, `src/run/decisions.ts` |
-| 08 | Procurement / Output: export of approved lines as CSV **or draft POs in Zoho**, blocked in shadow mode or when killed | `src/export`, `src/zoho/push.ts`, `src/app/(app)/export` (preview), `src/app/api/export/approved`, `src/kill/guards.ts` |
-| 09 | Deepa / Output: Health page, override log, losses vs baseline, kill status, rubber-stamp warning, go-live checklist | `src/app/(app)/health`, `src/run/health.ts`, `src/golive`, `src/components/health` |
+| 08 | Procurement / Output: export of approved lines as CSV **or draft POs in Zoho**, blocked only when the kill switch is on | `src/export`, `src/zoho/push.ts`, `src/app/(app)/export` (preview), `src/app/api/export/approved`, `src/kill/guards.ts` |
+| 09 | Deepa / Output: Health page, override log, losses vs baseline, kill status and criteria, rubber-stamp warning, a button to run the kill check now | `src/app/(app)/health`, `src/run/health.ts`, `src/golive`, `src/components/health` |
 | 10 | Before launch / Processing: backtest on SAP history against Raghav's past orders, festival uplift check | `src/backtest`, `src/run/history.ts`, `src/app/(app)/backtest`, `scripts/backtest.ts` |
 | 11 | Deepa / Context: outcome log (weekly incidents and overstock value, monthly ₹ loss, frozen baseline) | `src/outcomes`, `src/app/(app)/outcomes`, tables `outcomes_weekly`, `outcomes_monthly`, `baseline_weekly` |
 | 12 | Deepa / Processing: kill check after each run and monthly | `src/kill/check.ts` (pure `executeKillCheck`), `src/kill/gather.ts`, `src/kill/run.ts`, `/api/cron/kill-check` |
@@ -35,7 +35,7 @@ Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, 
 | 15 | Platform: Vercel | `vercel.json`, `next.config.ts`, `/api/run/[id]/advance`, `/api/cron/resume` |
 | 16 | Platform: Neon | `src/db`, `drizzle/`, `scripts/migrate.ts` |
 | 17 | Platform: Gemini Flash | `src/ai/gemini.ts` (Anthropic in `src/ai/anthropic.ts` behind the same interface) |
-| 18 | Before launch / Output: **shadow mode**, runs and reviews without export, compared with Raghav's own forecast | `mode` in config, `src/shadow`, `src/app/(app)/shadow`, `src/app/api/shadow` |
+| 18 | Before launch / Output: compare the system with Raghav's own forecast (there is no separate shadow period: the system behaves as live from the first run) | `src/compare`, `src/app/(app)/compare`, `src/app/api/compare` |
 
 Supporting: `src/auth` and `src/proxy.ts` (named users, roles, signed session, cron secret), `src/lib` (rate limit, dates, motion tokens, JSON logs, email), `docs/RUNBOOK.md`, `docs/GAP_REPORT.md`, `tests/` (Vitest), `e2e/` (Playwright).
 
@@ -43,14 +43,14 @@ Supporting: `src/auth` and `src/proxy.ts` (named users, roles, signed session, c
 
 With `OPEN_ACCESS=1` there is nothing to sign in to: open the link and you are a guest administrator, so you can run, approve, edit, reject, export, switch mode and use the kill switch. A red banner says so, and every action is logged as "Guest". Sign in from the top bar if you want to act under a named person instead.
 
-A five-minute walkthrough on a fresh database (`npm run seed`):
+A walkthrough on a fresh database (`npm run seed` loads the five project data files in `/fixtures` plus eight weeks of sample outcomes). The system behaves as it would in real use: there is no trial mode and nothing to unlock.
 
-1. **Review:** set the run date to `2026-10-19`, press **Run now**, watch the strip, read the headline and the 15 lines with the rule and numbers on each. Approve one, reject one with a reason, edit one quantity. Press `J`/`K`/`A`/`E`/`R`.
-2. **Shadow mode:** the Export button says it is blocked. That is the default until go-live.
-3. **Go live:** **Health** > Go-live checklist: tick the eight items. **Outcomes**: upload `fixtures/weekly_outcomes_sample.csv` (eight weeks). **Settings** > Operating mode > Live, add a note, save.
-4. **Export:** back on Review, **Export approved** opens the preview, then **Download CSV**: only the approved and edited lines.
-5. **Kill switch:** press **Stop** (top bar), see the banner and that Review is read-only, then **Health** > clear it with a note.
-6. **Also worth a look:** Backtest (festival uplift check), Shadow (upload a forecast CSV), Settings (change a threshold, **Preview impact**), Health (override log, kill criteria).
+1. **Review:** set the run date to `2026-10-19`, press **Run now**, watch the strip, read the headline and the 15 lines with the rule and numbers on each. Approve one, reject one with a reason, edit one quantity. Keys: `J`/`K`/`A`/`E`/`R`/`U`.
+2. **Export:** **Export approved** opens the preview of exactly what will be sent, then **Download CSV**: only the approved and edited lines, at their final quantities. (If Zoho is connected, **Create draft purchase orders** sits under it.)
+3. **Kill check against the case's baseline:** **Outcomes** shows the frozen 8-week baseline (measuring from 2026-10-12). Upload `fixtures/outcomes_live_ok.csv` for four normal weeks, then press **Run the kill check now** on **Health**: nothing is wrong. Upload `fixtures/outcomes_breach.csv` (the same four weeks, about 30% worse) and run the check: a **warning**. Upload `fixtures/outcomes_breach_next_week.csv` and run it again: the system **stops**. A red banner appears, Run now and Export are refused and Review is read-only.
+4. **Clear it:** **Health** > clear the kill switch with a written note. (You can also press **Stop** in the top bar at any time.)
+5. **Monthly losses:** on **Outcomes** add months of ₹ loss with the loss-calculation method; the quarterly test compares a full quarter with the case's ₹28 to 34 lakh baseline.
+6. **Also worth a look:** Backtest (with the festival uplift check), Compare (upload a forecast CSV of SKU_ID, Period, Qty), Settings (change a threshold and **Preview impact**), Health (override log, decision-time stats, system status).
 
 The scheduled-job and webhook endpoints still need their secrets, even in open access.
 
@@ -65,11 +65,11 @@ The scheduled-job and webhook endpoints still need their secrets, even in open a
 
 Everyone signed in can press **Stop**. Every approval, edit, rejection, upload, kill trip, kill clear and export download records the user.
 
-## Shadow, live and the kill switch
+## The kill switch
 
-The system starts in **shadow mode**: runs, sheets, review and overrides work, the export is blocked (423), and SHADOW shows on every page. The **Shadow** page compares Raghav's own monthly forecast with the system's recommendations. The sponsor moves to **live** on Settings after the go-live checklist on Health is complete (each item ticked by a named user, and 8 weeks of weekly outcomes entered), which freezes the weekly baseline.
+There is no shadow period or go-live gate: the system works as live from the first run, and the export is available as soon as lines are approved. Results are judged from a **measurement start** date (set automatically the first time the system is used, and restartable on the **Outcomes** page by the sponsor or an admin). The 8 weekly outcomes before it are the frozen baseline.
 
-The kill check runs after every completed run and on the 1st of each month. Three kill tests and a warning, with current values and thresholds on Health (thresholds on Settings, all starting proposals for the sponsor to confirm): quarterly loss above the baseline high; weekly indicators more than 20% worse than baseline at two consecutive checks; override rate above 50% across four consecutive live runs; and a rubber-stamp warning that never kills. Tests 1 to 3 are not evaluated in shadow mode. When tripped, scheduled runs and the export stop, Review is read-only, a banner shows everywhere, and an email goes out. Raghav's own process is unaffected. See `docs/RUNBOOK.md` section 6.
+The kill check runs after every completed run, on the 1st of each month, and on demand from Health. Three kill tests and a warning, with current values and thresholds on Health (thresholds on Settings, all starting proposals for the sponsor to confirm): quarterly loss above the baseline high; weekly indicators more than 20% worse than baseline at two consecutive checks; override rate above 50% across four consecutive runs; and a rubber-stamp warning that never kills. When tripped, scheduled runs and the export stop, Review is read-only, a banner shows everywhere, and an email goes out. Raghav's own process is unaffected. See `docs/RUNBOOK.md` section 6.
 
 ## Run it locally
 

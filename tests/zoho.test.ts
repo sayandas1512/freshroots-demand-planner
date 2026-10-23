@@ -278,11 +278,11 @@ describe("sync and push against Zoho", () => {
       const res = await startAndExecute(db, { trigger: "manual", asOf: GOLDEN_AS_OF }, { provider: null });
       const recs = await db.select().from(recommendations).where(eq(recommendations.runId, res.runId));
       const id = (sku: string) => recs.find((r) => r.skuId === sku)!.id;
-      await applyDecision(db, id("SKU001"), { action: "approve" }, null); // D001, 900
-      await applyDecision(db, id("SKU003"), { action: "approve" }, null); // D001, 500
-      await applyDecision(db, id("SKU004"), { action: "edit", qty: 300, reason: "Festival promo" }, null); // D003
+      await applyDecision(db, id("SKU001"), { action: "approve" }, null); // DIST001, 750
+      await applyDecision(db, id("SKU003"), { action: "approve" }, null); // DIST002, 300
+      await applyDecision(db, id("SKU004"), { action: "edit", qty: 300, reason: "Festival promo" }, null); // DIST002, 300
       await applyDecision(db, id("SKU011"), { action: "reject", reason: "Pallet on hand" }, null);
-      await db.insert(zohoVendorMap).values([{ distributorId: "D001", vendorId: "v-1" }, { distributorId: "D003", vendorId: "v-2" }]);
+      await db.insert(zohoVendorMap).values([{ distributorId: "DIST001", vendorId: "v-1" }, { distributorId: "DIST002", vendorId: "v-2" }]);
       await syncZoho(db, mk(), { trigger: "manual" });
       return res.runId;
     }
@@ -293,23 +293,26 @@ describe("sync and push against Zoho", () => {
       const plan = await planDraftPos(db, runId);
       expect(plan.blocked).toEqual([]);
       expect(plan.pos.map((p) => [p.vendorId, p.reference, p.totalQty, p.lines.map((l) => [l.skuId, l.itemId, l.qty, l.rate])])).toEqual([
-        ["v-1", referenceFor(runId, "v-1"), 1400, [["SKU001", "item-SKU001", 900, 40], ["SKU003", "item-SKU003", 500, 42]]],
-        ["v-2", referenceFor(runId, "v-2"), 300, [["SKU004", "item-SKU004", 300, 43]]],
+        ["v-1", referenceFor(runId, "v-1"), 750, [["SKU001", "item-SKU001", 750, 40]]],
+        ["v-2", referenceFor(runId, "v-2"), 600, [["SKU003", "item-SKU003", 300, 42], ["SKU004", "item-SKU004", 300, 43]]],
       ]);
       expect(JSON.stringify(plan)).not.toContain("SKU011");
     });
 
     it("blocks a vendor's whole PO when any line has no item, no rate or no vendor, and never splits it", async () => {
       const runId = await approvedRun();
-      await db.delete(zohoVendorMap).where(eq(zohoVendorMap.distributorId, "D003"));
       fake.items = fake.items.map((i) => (i.sku === "SKU003" ? { ...i, purchase_rate: 0 } : i));
       await syncZoho(db, mk(), { trigger: "manual", force: true });
-      const plan = await planDraftPos(db, runId);
-      expect(plan.pos).toEqual([]);
-      const reasons = Object.fromEntries(plan.blocked.map((b) => [b.skuId, b.reason]));
-      expect(reasons.SKU004).toMatch(/Distributor D003 is not mapped to a Zoho vendor/);
+      const held = await planDraftPos(db, runId);
+      expect(held.pos.map((p) => p.vendorId)).toEqual(["v-1"]); // the other vendor is untouched
+      const reasons = Object.fromEntries(held.blocked.map((b) => [b.skuId, b.reason]));
       expect(reasons.SKU003).toMatch(/has no purchase rate/);
-      expect(reasons.SKU001).toMatch(/Held back/);
+      expect(reasons.SKU004).toMatch(/Held back/);
+
+      await db.delete(zohoVendorMap).where(eq(zohoVendorMap.distributorId, "DIST001"));
+      const none = await planDraftPos(db, runId);
+      expect(none.pos).toEqual([]);
+      expect(none.blocked.find((b) => b.skuId === "SKU001")?.reason).toMatch(/Distributor DIST001 is not mapped to a Zoho vendor/);
     });
 
     it("creates DRAFT POs only: no status, no issue, approve or submit calls, a reference for every PO, and a log entry", async () => {
@@ -327,10 +330,10 @@ describe("sync and push against Zoho", () => {
       }
       expect(fake.calls.some((c) => /issue|approve|submit|status/i.test(c.path))).toBe(false);
       expect(fake.pos.filter((p) => p.status === "draft" && p.purchaseorder_number.startsWith("FR-"))).toHaveLength(2);
-      expect((posts()[0]!.body as { line_items: unknown[] }).line_items).toEqual([{ item_id: "item-SKU001", quantity: 900, purchase_rate: 40 }, { item_id: "item-SKU003", quantity: 500, purchase_rate: 42 }]);
+      expect((posts()[0]!.body as { line_items: unknown[] }).line_items).toEqual([{ item_id: "item-SKU001", quantity: 750, purchase_rate: 40 }]);
       const log = await db.select().from(zohoPushLog);
       expect(log.map((l) => l.status)).toEqual(["created", "created"]);
-      expect((await db.select().from(exportLog)).map((l) => [l.kind, l.lineCount, l.totalQty])).toEqual([["zoho_draft", 2, 1700]]);
+      expect((await db.select().from(exportLog)).map((l) => [l.kind, l.lineCount, l.totalQty])).toEqual([["zoho_draft", 2, 1350]]);
     });
 
     it("never creates the same PO twice, however often the push is repeated or raced", async () => {
@@ -382,10 +385,9 @@ describe("sync and push against Zoho", () => {
 
     it("the SKU master's Distributor_ID is only a key into the vendor map, so the unconfirmed meaning can be fixed in one place", async () => {
       const runId = await approvedRun();
-      await db.update(skus).set({ distributorId: "D002" }).where(eq(skus.skuId, "SKU001"));
-      await db.insert(zohoVendorMap).values({ distributorId: "D002", vendorId: "v-2" }).onConflictDoNothing();
+      await db.update(skus).set({ distributorId: "DIST002" }).where(eq(skus.skuId, "SKU001"));
       const plan = await planDraftPos(db, runId);
-      expect(plan.pos.find((p) => p.vendorId === "v-2")?.lines.map((l) => l.skuId).sort()).toEqual(["SKU001", "SKU004"]);
+      expect(plan.pos.find((p) => p.vendorId === "v-2")?.lines.map((l) => l.skuId).sort()).toEqual(["SKU001", "SKU003", "SKU004"]);
     });
   });
 });

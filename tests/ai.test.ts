@@ -22,7 +22,7 @@ describe("templates", () => {
     const text = templateReason(factsFor("SKU001"));
     expect(text).toContain("cover is only 3.4 weeks against a minimum of 6");
     expect(text).toContain("21% above the 12-week average");
-    expect(text).toContain("900 units");
+    expect(text).toContain("750 units");
   });
   it("every template passes its own guardrails, for every line in the golden data", () => {
     for (const f of allFacts) expect(validateReason(templateReason(f), f), f.skuId).toEqual({ ok: true, problems: [] });
@@ -70,7 +70,7 @@ describe("guardrails", () => {
     expect(validateReason("Reorder 1,500 units.", f).ok).toBe(false);
   });
   it("ignores digits that belong to the SKU name or code", () => {
-    expect(validateReason("Masala Peanuts 200g has 3.4 weeks of cover.", f).ok).toBe(true);
+    expect(validateReason("Freshroots Mango Drink 200ml has 3.4 weeks of cover.", f).ok).toBe(true);
   });
   it("rejects an action other than the computed one", () => {
     expect(validateReason("Cover is 3.4 weeks, so pause the next order.", f).ok).toBe(false);

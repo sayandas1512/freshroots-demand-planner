@@ -22,7 +22,6 @@
     "login-link": "tsx scripts/login-link.ts",
     "run:now": "tsx scripts/run-now.ts",
     "backtest": "tsx scripts/backtest.ts",
-    "fixtures:build": "tsx scripts/build-fixtures.ts",
     "gen:synthetic": "tsx scripts/gen-synthetic.ts",
     "zoho:token": "tsx scripts/zoho-token.ts"
   },

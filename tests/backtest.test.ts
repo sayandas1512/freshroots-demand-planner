@@ -81,7 +81,7 @@ describe("runBacktest", () => {
       const row = w42.find((r) => r.skuId === g.skuId)!;
       expect(row.systemAction.startsWith("exception")).toBe(false);
     }
-    expect(w42.find((r) => r.skuId === "SKU001")).toMatchObject({ systemAction: "REORDER_1_5X", systemQty: 900 });
+    expect(w42.find((r) => r.skuId === "SKU001")).toMatchObject({ systemAction: "REORDER_1_5X", systemQty: 750 });
     expect(out.rows.filter((r) => r.week === "2026-W41").every((r) => r.systemAction === "exception:missing_stock")).toBe(true);
     expect(out.notes[0]).toMatch(/2026-W41: no stock snapshot on or before 2026-10-12/);
     expect(out.hasOrders).toBe(false);
@@ -107,15 +107,15 @@ describe("runBacktest", () => {
   });
 
   it("compares with an orders file and stores the result per line", async () => {
-    const orders = ordersFromRows(parseCsv("orders", "SKU_ID,Week,Ordered_Qty\nSKU001,2026-W42,900\nSKU003,2026-W42,0\n").rows);
+    const orders = ordersFromRows(parseCsv("orders", "SKU_ID,Week,Ordered_Qty\nSKU001,2026-W42,750\nSKU003,2026-W42,0\n").rows);
     const out = await runBacktest(db, { from: "2026-W42", to: "2026-W42", orders });
     expect(out.hasOrders).toBe(true);
     const sku1 = out.rows.find((r) => r.skuId === "SKU001")!;
     const sku3 = out.rows.find((r) => r.skuId === "SKU003")!;
-    expect(sku1).toMatchObject({ agreed: true, orderedQty: 900 });
+    expect(sku1).toMatchObject({ agreed: true, orderedQty: 750 });
     expect(sku3).toMatchObject({ agreed: false, raghavAction: "NO_ORDER" });
     const stored = await db.select().from(backtestResults).where(eq(backtestResults.runId, out.runId));
-    expect(stored.find((r) => r.skuId === "SKU003")).toMatchObject({ agreed: false, systemQty: 500, orderedQty: 0 });
+    expect(stored.find((r) => r.skuId === "SKU003")).toMatchObject({ agreed: false, systemQty: 300, orderedQty: 0 });
   });
 });
 
@@ -130,7 +130,7 @@ describe("previewImpact (Settings)", () => {
     expect(both.changed).toEqual([]);
 
     const baselineOnly = await previewImpact(db, { ...DEFAULT_RULE_CONFIG, festival_uplift_mode: "baseline_only" });
-    expect(baselineOnly.changed).toEqual([{ skuId: "SKU001", before: "REORDER_1_5X 900", after: "REORDER_NOW 600" }]);
+    expect(baselineOnly.changed).toEqual([{ skuId: "SKU001", before: "REORDER_1_5X 750", after: "REORDER_NOW 500" }]);
     expect(baselineOnly.totalSkus).toBe(15);
     expect((await db.select().from(runs)).length).toBe(1);
   });

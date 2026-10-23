@@ -3,8 +3,7 @@ import { z } from "zod";
 import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
 import { ruleConfigSchema } from "@/engine/config";
-import { todayIst } from "@/lib/dates";
-import { ForbiddenError, GateError, saveConfigChange } from "@/run/mode";
+import { ForbiddenError, saveConfigChange } from "@/run/config-save";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +19,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: issue ? `${issue.path.join(".") || "request"}: ${issue.message}` : "Invalid settings" }, { status: 400 });
   }
   try {
-    const saved = await saveConfigChange(await getDb(), { config: parsed.data.config, note: parsed.data.note, actor, today: todayIst() });
+    const saved = await saveConfigChange(await getDb(), { config: parsed.data.config, note: parsed.data.note, actor });
     return NextResponse.json({ version: saved.version });
   } catch (err) {
     if (err instanceof ForbiddenError) return NextResponse.json({ error: err.message }, { status: 403 });
-    if (err instanceof GateError) return NextResponse.json({ error: `${err.message} Missing: ${err.missing.join("; ")}.`, missing: err.missing }, { status: 409 });
     throw err;
   }
 }

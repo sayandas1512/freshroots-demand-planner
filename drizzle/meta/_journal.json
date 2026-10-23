@@ -57,6 +57,13 @@
       "when": 1792736747288,
       "tag": "0007_passwordless",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792738226811,
+      "tag": "0008_remove_go_live",
+      "breakpoints": true
     }
   ]
 }

@@ -28,7 +28,7 @@ export default async function SettingsPage() {
           <p>The rules Raghav documented, as numbers. Saving never edits a version: it adds a new one with your note, and every run records the version it used.</p>
         </div>
       </div>
-      <SettingsForm active={{ version: active.version, config: active.config }} history={history} perms={{ editRules: can(role, "editRules"), editKill: can(role, "editKill"), setMode: can(role, "setMode") }} />
+      <SettingsForm active={{ version: active.version, config: active.config }} history={history} perms={{ editRules: can(role, "editRules"), editKill: can(role, "editKill"), editSwitches: can(role, "editSwitches") }} />
       <FestivalCalendar canEdit={can(role, "editRules")} months={months.map((m) => ({ yearMonth: m.yearMonth, isFestival: m.isFestival }))} />
     </>
   );

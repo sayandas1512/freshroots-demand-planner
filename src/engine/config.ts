@@ -1,11 +1,9 @@
 import { z } from "zod";
 
 export const FESTIVAL_UPLIFT_MODES = ["cover_demand", "both_windows", "baseline_only"] as const;
-export const OPERATING_MODES = ["shadow", "live"] as const;
-export type OperatingMode = (typeof OPERATING_MODES)[number];
 export type FestivalUpliftMode = (typeof FESTIVAL_UPLIFT_MODES)[number];
 
-export const ruleConfigSchema = z
+const configObject = z
   .object({
     recent_weeks: z.number().int().min(1).max(26),
     baseline_weeks: z.number().int().min(2).max(52),
@@ -22,7 +20,6 @@ export const ruleConfigSchema = z
     anomaly_factor: z.number().gt(1).max(20),
     anomaly_lookback_weeks: z.number().int().min(1).max(12),
     // ---- v2 additions. Defaults let config versions saved before v2 keep parsing.
-    mode: z.enum(OPERATING_MODES).default("shadow"),
     indicator_kill_pct: z.number().min(0).max(500).default(20),
     indicator_warn_pct: z.number().min(0).max(500).default(10),
     indicator_consecutive_checks: z.number().int().min(1).max(12).default(2),
@@ -52,7 +49,17 @@ export const ruleConfigSchema = z
     }
   });
 
-export type RuleConfig = z.infer<typeof ruleConfigSchema>;
+/** Config versions saved before the shadow mode was removed still carry a `mode` key; it is ignored. */
+export const ruleConfigSchema = z.preprocess((v) => {
+  if (v && typeof v === "object" && !Array.isArray(v) && "mode" in v) {
+    const rest = { ...(v as Record<string, unknown>) };
+    delete rest.mode;
+    return rest;
+  }
+  return v;
+}, configObject);
+
+export type RuleConfig = z.output<typeof configObject>;
 
 /** Raghav's documented defaults. Every value here is shown on the Settings page. */
 export const DEFAULT_RULE_CONFIG: RuleConfig = {
@@ -70,7 +77,6 @@ export const DEFAULT_RULE_CONFIG: RuleConfig = {
   stale_inventory_days: 7,
   anomaly_factor: 2.0,
   anomaly_lookback_weeks: 4,
-  mode: "shadow",
   indicator_kill_pct: 20,
   indicator_warn_pct: 10,
   indicator_consecutive_checks: 2,
@@ -103,7 +109,6 @@ export const CONFIG_LABELS: Record<keyof RuleConfig, string> = {
   stale_inventory_days: "Stale inventory limit (days)",
   anomaly_factor: "Anomalous jump factor",
   anomaly_lookback_weeks: "Anomaly look-back (weeks)",
-  mode: "Operating mode",
   indicator_kill_pct: "Weekly indicator kill threshold (% worse)",
   indicator_warn_pct: "Weekly indicator warning threshold (% worse)",
   indicator_consecutive_checks: "Consecutive checks needed to kill (indicators)",

@@ -1,0 +1,1 @@
+DROP TABLE "go_live_items" CASCADE;

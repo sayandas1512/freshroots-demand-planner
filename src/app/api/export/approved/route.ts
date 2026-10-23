@@ -11,7 +11,7 @@ import { getActiveConfig } from "@/run/config-store";
 
 export const dynamic = "force-dynamic";
 
-/** Purchase-order CSV of approved and edited lines only. Blocked in shadow mode and while the kill switch is on. Every download is logged. */
+/** Purchase-order CSV of approved and edited lines only. Blocked while the kill switch is on. Every download is logged. */
 export async function GET(request: Request) {
   const actor = await requirePermission(request, "export");
   if (isResponse(actor)) return actor;

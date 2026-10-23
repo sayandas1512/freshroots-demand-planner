@@ -5,7 +5,6 @@ const HIGH = 3_400_000;
 
 function input(over: Partial<KillInput> = {}): KillInput {
   return {
-    mode: "live",
     thresholds: { indicatorKillPct: 20, indicatorWarnPct: 10, indicatorConsecutiveChecks: 2, overrideKillRate: 0.5, overrideKillRuns: 4, rubberOverrideRate: 0.02, rubberMedianSeconds: 5, rubberRuns: 4 },
     baselineHighInr: HIGH,
     quarter: null,
@@ -113,22 +112,5 @@ describe("criterion 4: rubber stamping", () => {
   it("needs timing data and 4 runs", () => {
     expect(byId(executeKillCheck(input({ allRuns: [fast, fast, fast, run(0.01, null)] })), "rubber_stamp").status).toBe("no_data");
     expect(byId(executeKillCheck(input({ allRuns: [fast, fast] })), "rubber_stamp").status).toBe("no_data");
-  });
-});
-
-describe("shadow mode", () => {
-  it("does not evaluate criteria 1 to 3 even when every number is terrible, but still checks rubber stamping", () => {
-    const bad = input({
-      mode: "shadow",
-      quarter: { period: "2027-Q2", outcomeInr: 9e9, lastYearInr: null },
-      month: { period: "2027-04", outcomeInr: 9e9 },
-      weekly: { baseline: { stockout: 1, overstockValue: 1 }, recent: weeks(99, 99), history: [{ latestWeek: "2027-W09", stockout: "kill", overstock: "kill" }] },
-      liveRuns: [run(0.9), run(0.9), run(0.9), run(0.9)],
-      allRuns: [run(0.01, 2), run(0.01, 2), run(0.01, 2), run(0.01, 2)],
-    });
-    const r = executeKillCheck(bad);
-    expect(r.tripped).toBe(false);
-    for (const id of ["quarter_loss", "month_loss", "indicator_stockout", "indicator_overstock", "overrides"]) expect(byId(r, id).status).toBe("not_evaluated");
-    expect(byId(r, "rubber_stamp").status).toBe("warn");
   });
 });

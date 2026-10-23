@@ -347,7 +347,7 @@ export const outcomesMonthly = pgTable("outcomes_monthly", {
   enteredAt: ts("entered_at").notNull().defaultNow(),
 });
 
-/** The 8 weeks before go-live, copied here and never edited again once frozen. */
+/** The 8 weekly outcomes before the measurement start, copied here so later edits cannot move the baseline. */
 export const baselineWeekly = pgTable("baseline_weekly", {
   week: text("week").primaryKey(),
   stockoutIncidents: integer("stockout_incidents").notNull(),
@@ -362,12 +362,6 @@ export const appState = pgTable("app_state", {
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
-export const goLiveItems = pgTable("go_live_items", {
-  itemKey: text("item_key").primaryKey(),
-  tickedBy: uuid("ticked_by").notNull(),
-  tickedAt: ts("ticked_at").notNull().defaultNow(),
-  note: text("note"),
-});
 
 export const exportLog = pgTable(
   "export_log",

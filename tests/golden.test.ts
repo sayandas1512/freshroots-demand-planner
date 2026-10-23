@@ -41,7 +41,7 @@ describe("golden table (brief section 7), 2026-10-19, cover_demand", () => {
     // would push the ratio far higher; widening the baseline would pull it under 1.20 and drop the flag.
     const line = result.lines.find((l) => l.skuId === "SKU001")!;
     expect(line.action).toBe("REORDER_1_5X");
-    expect(line.qty).toBe(900);
+    expect(line.qty).toBe(750);
     expect(line.metrics.urgent).toBe(true);
     expect(line.ruleFired).toBe("high_demand+stockout_risk.general");
   });
@@ -50,7 +50,7 @@ describe("golden table (brief section 7), 2026-10-19, cover_demand", () => {
     const by = (id: string) => result.lines.find((l) => l.skuId === id)!;
     expect(by("SKU003").ruleFired).toBe("stockout_risk.general");
     expect(by("SKU003").action).toBe("REORDER_NOW");
-    expect(by("SKU003").qty).toBe(500);
+    expect(by("SKU003").qty).toBe(300);
     expect(by("SKU004").ruleFired).toBe("stockout_risk.perishable");
     expect(by("SKU006").ruleFired).toBe("overstock_risk.general");
     expect(by("SKU006").action).toBe("PAUSE");

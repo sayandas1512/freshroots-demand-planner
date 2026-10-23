@@ -1,14 +1,11 @@
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, inArray, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
-import { appState, baseline, baselineWeekly, killChecks, outcomesMonthly, outcomesWeekly, recommendations, runs } from "@/db/schema";
+import { baseline, baselineWeekly, killChecks, outcomesMonthly, outcomesWeekly, recommendations, runs } from "@/db/schema";
 import { isoWeekOf } from "@/engine/weeks";
+import { todayIst } from "@/lib/dates";
 import { getActiveConfig } from "@/run/config-store";
+import { ensureMeasurementStart } from "@/run/measurement";
 import type { KillInput, Level, RunStat } from "./check";
-
-export async function getLiveSince(db: Db): Promise<string | null> {
-  const [row] = await db.select().from(appState).where(eq(appState.key, "live_since")).limit(1);
-  return typeof row?.value.date === "string" ? row.value.date : null;
-}
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -51,15 +48,14 @@ export async function recentRunStats(db: Db, limit: number): Promise<(RunStat & 
 /** Build the input for `executeKillCheck` from the database. */
 export async function gatherKillInput(db: Db): Promise<KillInput> {
   const { config } = await getActiveConfig(db);
-  const liveSince = await getLiveSince(db);
-  const isLive = config.mode === "live" && liveSince !== null;
+  const liveSince = await ensureMeasurementStart(db, todayIst());
 
   const [range] = await db.select().from(baseline).where(sql`${baseline.stockoutLossInrHigh} is not null`).limit(1);
   const baselineHighInr = range && range.stockoutLossInrHigh !== null && range.writeoffInrHigh !== null ? range.stockoutLossInrHigh + range.writeoffInrHigh : null;
 
   const monthly = await db.select().from(outcomesMonthly);
   const byPeriod = new Map(monthly.map((m) => [m.period, m.stockoutLossInr + m.writeoffInr]));
-  const since = liveSince ?? "9999-12-31";
+  const since = liveSince;
   const liveMonths = [...byPeriod.keys()].filter((p) => `${p}-01` >= since).sort();
   const month = liveMonths.length > 0 ? { period: liveMonths.at(-1) as string, outcomeInr: byPeriod.get(liveMonths.at(-1) as string) as number } : null;
 
@@ -81,7 +77,7 @@ export async function gatherKillInput(db: Db): Promise<KillInput> {
 
   const baseRows = await db.select().from(baselineWeekly);
   const weeklyBaseline = baseRows.length === 0 ? null : { stockout: baseRows.reduce((a, r) => a + r.stockoutIncidents, 0) / baseRows.length, overstockValue: baseRows.reduce((a, r) => a + r.overstockValueInr, 0) / baseRows.length };
-  const liveWeekFloor = isLive ? isoWeekOf(liveSince) : "9999-W99";
+  const liveWeekFloor = isoWeekOf(liveSince);
   const weeklyRows = (await db.select().from(outcomesWeekly)).filter((w) => w.week >= liveWeekFloor).sort((a, b) => a.week.localeCompare(b.week));
 
   const checks = await db.select().from(killChecks).orderBy(desc(killChecks.at)).limit(60);
@@ -95,10 +91,9 @@ export async function gatherKillInput(db: Db): Promise<KillInput> {
 
   // A run nobody has decided anything on yet says nothing about overrides, so it is left out of both run-based tests.
   const stats = (await recentRunStats(db, 40)).filter((s) => s.overrideRate !== null);
-  const liveRuns = isLive ? stats.filter((s) => s.startedAt >= new Date(`${liveSince}T00:00:00Z`)) : [];
+  const liveRuns = stats.filter((s) => s.startedAt >= new Date(`${liveSince}T00:00:00Z`));
 
   return {
-    mode: isLive ? "live" : "shadow",
     thresholds: {
       indicatorKillPct: config.indicator_kill_pct,
       indicatorWarnPct: config.indicator_warn_pct,

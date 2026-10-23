@@ -125,7 +125,7 @@ describe("system health", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     await startAndExecute(db, { trigger: "manual", asOf: GOLDEN_AS_OF }, { provider: null });
     const fresh = await systemHealth(db, { pingLlm: false, now: new Date("2026-10-20T04:00:00Z") });
-    expect(fresh).toMatchObject({ overall: "ok", db: { ok: true }, mode: "shadow", kill: { active: false }, llm: { provider: null, reachable: null } });
+    expect(fresh).toMatchObject({ overall: "ok", db: { ok: true }, kill: { active: false }, llm: { provider: null, reachable: null } });
     expect(fresh.lastRun).toMatchObject({ status: "completed", asOf: GOLDEN_AS_OF });
     expect(fresh.files).toMatchObject({ latestSalesWeek: "2026-W42", latestInventoryDate: "2026-10-19", inventoryAgeDays: 1, inventoryStale: false });
 

@@ -1,16 +1,16 @@
 SKU_ID,SKU_Name,Category,Perishability,Standard_Reorder_Qty,Unit_of_Measure,Distributor_ID
-SKU001,Masala Peanuts 200g,Snacks,Low,600,case,D001
-SKU002,Rice Flour 1kg,Staples,Low,800,case,D002
-SKU003,Poha Thick 500g,Staples,Low,500,case,D001
-SKU004,Fresh Bhakarwadi 250g,Snacks,High,240,case,D003
-SKU005,Toor Dal 1kg,Staples,Low,400,case,D002
-SKU006,Whole Wheat Atta 5kg,Staples,Low,300,bag,D004
-SKU007,Fresh Farsan Mix 300g,Snacks,High,400,case,D003
-SKU008,Sunflower Oil 1L,Staples,Low,500,case,D001
-SKU009,Sabudana 500g,Staples,Low,250,case,D004
-SKU010,Jaggery Powder 500g,Staples,Low,200,case,D002
-SKU011,Soft Chikki 150g,Snacks,High,600,case,D003
-SKU012,Banana Chips 150g,Snacks,Low,300,case,D001
-SKU013,Roasted Chana 400g,Snacks,Low,250,case,D004
-SKU014,Besan 1kg,Staples,Low,350,case,D002
-SKU015,Cumin Seeds 100g,Staples,Low,150,case,D001
+SKU001,Freshroots Mango Drink 200ml,Beverage,Low,500,Units,DIST001
+SKU002,Freshroots Oats Cookies 150g,Snack,Low,200,Units,DIST001
+SKU003,Freshroots Brown Rice 1kg,Staple,Low,300,Units,DIST002
+SKU004,Freshroots Almond Milk 500ml,Dairy Alt,High,150,Units,DIST002
+SKU005,Freshroots Mixed Nuts 100g,Snack,Low,150,Units,DIST003
+SKU006,Freshroots Quinoa 500g,Staple,Low,100,Units,DIST003
+SKU007,Freshroots Coconut Water 330ml,Beverage,High,400,Units,DIST001
+SKU008,Freshroots Granola Bar 40g,Snack,Low,300,Units,DIST002
+SKU009,Freshroots Chia Seeds 200g,Staple,Low,80,Units,DIST003
+SKU010,Freshroots Apple Cider Vinegar 500ml,Condiment,Low,60,Units,DIST004
+SKU011,Freshroots Multigrain Bread 400g,Staple,High,500,Units,DIST004
+SKU012,Freshroots Herbal Tea 25 bags,Beverage,Low,150,Units,DIST004
+SKU013,Freshroots Peanut Butter 300g,Condiment,Low,120,Units,DIST001
+SKU014,Freshroots Dark Chocolate 80g,Snack,Low,200,Units,DIST002
+SKU015,Freshroots Honey 500g,Condiment,Low,80,Units,DIST003

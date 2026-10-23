@@ -9,7 +9,7 @@ import { ZohoError, type ZohoClient } from "./client";
 /**
  * Approved lines become DRAFT purchase orders in Zoho, one per vendor. A draft is not an order: someone still reviews
  * and issues it in Zoho. This module never calls Zoho's issue, approve or submit endpoints, so the system cannot place
- * an order. Callers must apply the same gates as the CSV export (live mode, kill switch off, planner or admin role).
+ * an order. Callers must apply the same gates as the CSV export (kill switch off, planner or admin role).
  */
 export interface PlannedLine {
   skuId: string;
