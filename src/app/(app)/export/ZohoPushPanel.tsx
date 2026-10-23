@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ConfirmAction } from "@/components/ConfirmAction";
 import type { PushPlan } from "@/zoho/push";
 
 interface Result {
@@ -19,7 +20,6 @@ export function ZohoPushPanel({ runId, plan, enabled }: { runId: string; plan: P
   const [error, setError] = useState<string | null>(null);
 
   async function push() {
-    if (!confirm(`Create ${plan.pos.length} draft purchase order${plan.pos.length === 1 ? "" : "s"} in Zoho? They stay drafts until someone issues them in Zoho.`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -59,7 +59,21 @@ export function ZohoPushPanel({ runId, plan, enabled }: { runId: string; plan: P
         </ul>
       ) : null}
       {error ? <p className="form-error" role="alert">{error}</p> : null}
-      <div><button type="button" className="btn btn-primary" disabled={!enabled || busy || plan.pos.length === 0} onClick={push} data-testid="zoho-push">{busy ? "Creating…" : `Create ${plan.pos.length} draft PO${plan.pos.length === 1 ? "" : "s"} in Zoho`}</button></div>
+      <div>
+        {busy ? (
+          <button type="button" className="btn btn-primary" disabled data-testid="zoho-push">Creating…</button>
+        ) : (
+          <ConfirmAction
+            label={`Create ${plan.pos.length} draft PO${plan.pos.length === 1 ? "" : "s"} in Zoho`}
+            message={`Create ${plan.pos.length} draft purchase order${plan.pos.length === 1 ? "" : "s"} in Zoho? They stay drafts until someone issues them in Zoho.`}
+            confirmLabel="Yes, create the drafts"
+            className="btn btn-primary"
+            disabled={!enabled || plan.pos.length === 0}
+            onConfirm={() => void push()}
+            testId="zoho-push"
+          />
+        )}
+      </div>
     </section>
   );
 }

@@ -20,6 +20,7 @@ export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, fr
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pendingStart, setPendingStart] = useState<string | null>(null);
 
   async function send(url: string, init: RequestInit, done: (json: Record<string, unknown>) => string) {
     setBusy(true);
@@ -65,8 +66,13 @@ export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, fr
 
   function restart(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const startDate = String(new FormData(e.currentTarget).get("start"));
-    if (!confirm(`Judge results from ${startDate}? The 8 weekly outcomes before that date become the frozen baseline, replacing the current one.`)) return;
+    setPendingStart(String(new FormData(e.currentTarget).get("start")));
+  }
+
+  function confirmRestart() {
+    const startDate = pendingStart;
+    setPendingStart(null);
+    if (!startDate) return;
     void send("/api/measurement", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ startDate }) }, (j) => `Measuring from ${String(j.startDate)}; ${String(j.frozenWeeks)} weeks frozen as the baseline.`);
   }
 
@@ -84,7 +90,15 @@ export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, fr
         {canRestart ? (
           <form onSubmit={restart} className="baseline-form" aria-label="Restart measurement">
             <label className="field">Measure from<input type="date" name="start" defaultValue={since} required /></label>
-            <button type="submit" className="btn btn-sm" disabled={busy} data-testid="restart-measurement">Restart measurement</button>
+            {pendingStart ? (
+              <span className="confirm-inline" role="group" aria-label="Confirm restart">
+                <span className="small" role="alert">Judge results from {pendingStart}? The 8 weekly outcomes before that date become the frozen baseline, replacing the current one.</span>{" "}
+                <button type="button" className="btn btn-primary btn-sm" autoFocus onClick={confirmRestart} data-testid="restart-measurement-confirm">Yes, restart</button>{" "}
+                <button type="button" className="btn btn-sm" onClick={() => setPendingStart(null)}>Cancel</button>
+              </span>
+            ) : (
+              <button type="submit" className="btn btn-sm" disabled={busy} data-testid="restart-measurement">Restart measurement</button>
+            )}
           </form>
         ) : <p className="small muted">Only the sponsor or an admin can restart measurement.</p>}
       </section>

@@ -146,8 +146,8 @@ test("measurement and the kill check: baseline, a breach, a warning, then a trip
   await login(deepa, "sponsor");
   await deepa.getByRole("link", { name: "Outcomes" }).click();
   await deepa.locator('input[name="start"]').fill("2026-10-12");
-  deepa.once("dialog", (d) => void d.accept());
   await deepa.getByTestId("restart-measurement").click();
+  await deepa.getByTestId("restart-measurement-confirm").click();
   await expect(deepa.getByText("Measuring from 2026-10-12; 8 weeks frozen as the baseline.")).toBeVisible();
   await expect(deepa.getByTestId("frozen-table").locator("tbody tr")).toHaveCount(8);
 
@@ -231,7 +231,7 @@ test("kill switch: a manual stop makes everything read-only, and only the sponso
 });
 
 test("Zoho: sync, map vendors, create draft purchase orders once, never issue them", async ({ browser }) => {
-  const state = async (page: Page) => (await (await page.request.get("http://localhost:4010/__state")).json()) as { pos: { purchaseorder_number: string; status: string; vendor_id: string; line_items: { item_id: string; quantity: number }[] }[]; calls: string[] };
+  const state = async (page: Page) => (await (await page.request.get("http://localhost:4010/__state")).json()) as { pos: { purchaseorder_number: string; reference_number?: string; status: string; vendor_id: string; line_items: { item_id: string; quantity: number }[] }[]; calls: string[] };
 
   // admin: sync, then map the distributors on the approved lines to Zoho vendors
   const adminCtx = await browser.newContext({ baseURL: "http://localhost:3200" });
@@ -268,22 +268,22 @@ test("Zoho: sync, map vendors, create draft purchase orders once, never issue th
   await expect(raghav.getByTestId("zoho-po-vendor-A")).toContainText("Sahyadri Supplies");
   await expect(raghav.getByTestId("zoho-po-vendor-A")).toContainText("750 units");
   await expect(raghav.getByTestId("zoho-po-vendor-B")).toContainText("Freshroots Almond Milk 500ml");
-  raghav.once("dialog", (d) => void d.accept());
   await raghav.getByTestId("zoho-push").click();
+  await raghav.getByTestId("zoho-push-confirm").click();
   await expect(raghav.getByTestId("zoho-results")).toContainText("Sahyadri Supplies: created");
   await expect(raghav.getByTestId("zoho-results")).toContainText("Deccan Wholesale: created");
 
   const s1 = await state(raghav);
-  const drafts = s1.pos.filter((p) => p.purchaseorder_number.startsWith("FR-"));
+  const drafts = s1.pos.filter((p) => (p.reference_number ?? "").startsWith("FR-"));
   expect(drafts.map((p) => [p.status, p.vendor_id]).sort()).toEqual([["draft", "vendor-A"], ["draft", "vendor-B"]]);
   expect(drafts.find((p) => p.vendor_id === "vendor-A")?.line_items.map((l) => [l.item_id, l.quantity])).toEqual([["item-SKU001", 750]]);
   expect(s1.calls.some((c) => /issue|approve|submit|status/i.test(c))).toBe(false);
 
   // pressing it again creates nothing new
-  raghav.once("dialog", (d) => void d.accept());
   await raghav.getByTestId("zoho-push").click();
+  await raghav.getByTestId("zoho-push-confirm").click();
   await expect(raghav.getByTestId("zoho-results")).toContainText("already created");
-  expect((await state(raghav)).pos.filter((p) => p.purchaseorder_number.startsWith("FR-"))).toHaveLength(2);
+  expect((await state(raghav)).pos.filter((p) => (p.reference_number ?? "").startsWith("FR-"))).toHaveLength(2);
 
   // the Zoho page lists them, and a killed system could not have created them
   await admin.getByRole("link", { name: "Zoho" }).click();

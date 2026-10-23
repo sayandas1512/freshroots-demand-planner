@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmAction } from "@/components/ConfirmAction";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ZohoStatus } from "@/zoho/status";
@@ -135,7 +136,7 @@ export function ZohoClientPanel({ status, canEdit, canExport }: { status: ZohoSt
                     <td className="mono">{p.zohoPoNumber ?? ""}</td>
                     <td className="num r">{p.lineCount}</td>
                     <td className="small">{p.error ?? ""}</td>
-                    <td>{canExport && p.status === "unconfirmed" ? <button type="button" className="btn btn-sm" disabled={busy !== null} onClick={() => confirm("Only continue if you have looked in Zoho and this draft purchase order is NOT there. Otherwise a duplicate will be created.") && call(`r-${p.reference}`, "/api/zoho/retry", { reference: p.reference }, () => "Retry allowed. Push again from the Export preview.")}>Not in Zoho: allow retry</button> : null}</td>
+                    <td>{canExport && p.status === "unconfirmed" ? <ConfirmAction label="Not in Zoho: allow retry" message="Only continue if you have looked in Zoho and this draft purchase order is NOT there. Otherwise a duplicate will be created." confirmLabel="It is not there, allow retry" className="btn btn-sm" disabled={busy !== null} onConfirm={() => void call(`r-${p.reference}`, "/api/zoho/retry", { reference: p.reference }, () => "Retry allowed. Push again from the Export preview.")} /> : null}</td>
                   </tr>
                 ))}
               </tbody>
