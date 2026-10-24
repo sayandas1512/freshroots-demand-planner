@@ -10,6 +10,9 @@ import { zohoConfig } from "@/zoho";
 import { lastSync } from "@/zoho/sync";
 import { getActiveConfig } from "./config-store";
 
+/** Zoho is read before every run and once a day by cron (Vercel Hobby allows no more), so older than a day plus slack is what counts as stale. */
+const ZOHO_STALE_MINUTES = 26 * 60;
+
 export type Overall = "ok" | "degraded" | "stopped" | "down";
 
 export interface SystemHealth {
@@ -65,7 +68,7 @@ export async function systemHealth(db: Db, opts: { pingLlm: boolean; now?: Date 
   const zohoOn = zohoConfig() !== null;
   const zs = zohoOn ? await lastSync(db) : null;
   const zohoAge = zs ? Math.round((now.getTime() - zs.at.getTime()) / 60_000) : null;
-  const zohoBad = zohoOn && (zs === null || !zs.ok || (zohoAge ?? 0) > 120);
+  const zohoBad = zohoOn && (zs === null || !zs.ok || (zohoAge ?? 0) > ZOHO_STALE_MINUTES);
   const lastBad = lastRow !== undefined && (lastRow.status === "failed" || lastRow.status === "completed_degraded");
   const overall: Overall = kill.active ? "stopped" : stale || lastBad || zohoBad || llm.reachable === false ? "degraded" : "ok";
   return {
