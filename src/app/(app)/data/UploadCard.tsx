@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import type { IngestReport } from "@/ingest/ingest";
+import { formatIst } from "@/lib/dates";
 
 interface Props {
   kind: string;
@@ -58,7 +59,7 @@ export function UploadCard({ kind, label, source, headers, last, managedBy }: Pr
       <p className="muted mono small">{headers.join(", ")}</p>
       {last ? (
         <p className="small muted">
-          Last upload: <strong>{last.fileName}</strong> on {new Date(last.at).toLocaleString("en-IN")}: {last.accepted} accepted, {last.rejected} rejected, {last.replaced} replaced.
+          Last upload: <strong>{last.fileName}</strong> on {formatIst(last.at)}: {last.accepted} accepted, {last.rejected} rejected, {last.replaced} replaced.
         </p>
       ) : (
         <p className="small muted">Nothing uploaded yet.</p>

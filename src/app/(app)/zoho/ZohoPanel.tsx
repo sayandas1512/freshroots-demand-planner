@@ -4,6 +4,7 @@ import { ConfirmAction } from "@/components/ConfirmAction";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { ZohoStatus } from "@/zoho/status";
+import { formatIst } from "@/lib/dates";
 
 const ago = (iso: string) => {
   const m = Math.round((Date.now() - Date.parse(iso)) / 60_000);
@@ -130,7 +131,7 @@ export function ZohoClientPanel({ status, canEdit, canExport }: { status: ZohoSt
               <tbody>
                 {status.pushLog.map((p) => (
                   <tr key={p.reference}>
-                    <td className="num">{new Date(p.at).toLocaleString("en-IN")}</td>
+                    <td className="num">{formatIst(p.at)}</td>
                     <td className="mono">{p.reference}</td>
                     <td><span className={`chip ${p.status === "created" ? "chip-hold" : p.status === "failed" ? "chip-stockout" : "chip-demand"}`}>{p.status}</span></td>
                     <td className="mono">{p.zohoPoNumber ?? ""}</td>

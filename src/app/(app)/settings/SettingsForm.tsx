@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { FESTIVAL_UPLIFT_MODES, diffConfig, ruleConfigSchema, type FestivalUpliftMode, type RuleConfig } from "@/engine/config";
 import type { ImpactPreview } from "@/run/preview";
+import { formatIst } from "@/lib/dates";
 
 interface HistoryItem {
   version: number;
@@ -288,7 +289,7 @@ export function SettingsForm({ active, history, perms }: { active: { version: nu
                 <div className="history-head">
                   <strong>v{h.version}</strong>
                   {h.isActive ? <span className="chip chip-hold">Active</span> : null}
-                  <span className="faint small">{new Date(h.createdAt).toLocaleString("en-IN")}</span>
+                  <span className="faint small">{formatIst(h.createdAt)}</span>
                 </div>
                 <p className="small">{h.note || "No note"}</p>
                 {h.isFirst ? <p className="faint small">First version.</p> : h.changes.length === 0 ? <p className="faint small">No rule changes.</p> : (

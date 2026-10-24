@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { formatIst } from "@/lib/dates";
 
 interface Props {
   canEdit: boolean;
@@ -155,7 +156,7 @@ export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, fr
         <h2 id="fz-h">Frozen weekly baseline</h2>
         {frozen.length === 0 ? <p className="muted small">Not frozen yet. Enter or upload at least a few weeks before the measurement start, then restart measurement above to freeze them.</p> : (
           <div className="table-wrap"><table className="data" data-testid="frozen-table"><thead><tr><th>Week</th><th className="r">Stockout incidents</th><th className="r">Overstock value</th><th>Frozen</th></tr></thead>
-            <tbody>{frozen.map((f) => <tr key={f.week}><td className="num">{f.week}</td><td className="num r">{f.stockout}</td><td className="num r">{inr(f.overstock)}</td><td className="small muted">{new Date(f.at).toLocaleString("en-IN")}</td></tr>)}</tbody></table></div>
+            <tbody>{frozen.map((f) => <tr key={f.week}><td className="num">{f.week}</td><td className="num r">{f.stockout}</td><td className="num r">{inr(f.overstock)}</td><td className="small muted">{formatIst(f.at)}</td></tr>)}</tbody></table></div>
         )}
       </section>
     </>

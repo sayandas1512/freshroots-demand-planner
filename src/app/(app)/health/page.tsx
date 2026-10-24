@@ -13,7 +13,7 @@ import { previewKill } from "@/kill/run";
 import { getKillState } from "@/kill/state";
 import { systemHealth } from "@/run/healthcheck";
 import { ensureMeasurementStart } from "@/run/measurement";
-import { todayIst } from "@/lib/dates";
+import { todayIst, formatIst } from "@/lib/dates";
 import { compareToRange, formatLakh } from "@/run/baseline";
 import { loadHealth, type HealthRun } from "@/run/health";
 import { BaselineForm } from "./BaselineForm";
@@ -33,7 +33,7 @@ const RULE_COLOR = (rule: string): string =>
 function RunRow({ r }: { r: HealthRun }) {
   return (
     <tr>
-      <td className="num">{new Date(r.startedAt).toLocaleString("en-IN")}</td>
+      <td className="num">{formatIst(r.startedAt)}</td>
       <td className="num">{r.asOf}</td>
       <td>{r.trigger}</td>
       <td><span className={`chip ${STATUS_CHIP[r.status] ?? "chip-plain"}`}>{STATUS_LABEL[r.status] ?? r.status}</span></td>
@@ -102,7 +102,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
         </div>
         {can(role, "run") ? <RunKillCheckButton /> : null}
         {kill.active ? (
-          <div className="banner banner-bad" role="status"><span><strong>Stopped.</strong> {kill.reason} Set by {kill.by} on {new Date(kill.since as string).toLocaleString("en-IN")}.</span></div>
+          <div className="banner banner-bad" role="status"><span><strong>Stopped.</strong> {kill.reason} Set by {kill.by} on {formatIst(kill.since as string)}.</span></div>
         ) : null}
         {kill.active && can(role, "clearKill") ? <ClearKillForm /> : null}
         {kill.active && !can(role, "clearKill") ? <p className="small muted">Only the sponsor or an admin can clear the kill switch.</p> : null}
@@ -126,7 +126,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
           <details>
             <summary>Kill switch history</summary>
             <ul className="issue-list small">
-              {history.map((e) => <li key={e.id}>{new Date(e.at).toLocaleString("en-IN")}: {e.kind === "clear" ? "cleared" : "tripped"} by {e.setByLabel}. {e.kind === "clear" ? `Note: ${e.note ?? ""}` : e.reason}</li>)}
+              {history.map((e) => <li key={e.id}>{formatIst(e.at)}: {e.kind === "clear" ? "cleared" : "tripped"} by {e.setByLabel}. {e.kind === "clear" ? `Note: ${e.note ?? ""}` : e.reason}</li>)}
             </ul>
           </details>
         ) : null}
@@ -228,7 +228,7 @@ export default async function HealthPage({ searchParams }: { searchParams: Promi
               <tbody>
                 {h.overrideLog.map((o) => (
                   <tr key={o.id}>
-                    <td className="num">{new Date(o.at).toLocaleString("en-IN")}</td>
+                    <td className="num">{formatIst(o.at)}</td>
                     <td><strong>{o.skuName}</strong> <span className="mono muted small">{o.skuId}</span></td>
                     <td className="num">{o.field}: {o.from ?? "none"} → <strong>{o.to ?? "none"}</strong></td>
                     <td>{o.reason}</td>

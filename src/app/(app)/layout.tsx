@@ -6,6 +6,7 @@ import { getUser } from "@/auth/users";
 import { Nav } from "@/components/Nav";
 import { getDb } from "@/db/client";
 import { getKillState } from "@/kill/state";
+import { formatIst } from "@/lib/dates";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const actor = await currentActor();
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {kill.active ? (
         <div className="banner banner-bad kill-banner" role="alert" data-testid="kill-banner">
           <span>
-            <strong>Kill switch is ON.</strong> {kill.reason} Set by {kill.by} on {kill.since ? new Date(kill.since).toLocaleString("en-IN") : ""}.
+            <strong>Kill switch is ON.</strong> {kill.reason} Set by {kill.by} on {kill.since ? formatIst(kill.since) : ""}.
             Scheduled runs and the purchase-order export are stopped and Review is read-only. Raghav&apos;s own process is unaffected. The sponsor or an admin can clear it on the Health page.
           </span>
         </div>
