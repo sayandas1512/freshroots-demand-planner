@@ -1,0 +1,22 @@
+.chat { position: fixed; right: var(--s-4); bottom: var(--s-4); z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: var(--s-3); max-width: calc(100vw - 2 * var(--s-4)); }
+.chat-launch { box-shadow: var(--shadow); }
+.chat-panel { width: min(420px, calc(100vw - 2 * var(--s-4))); max-height: min(620px, calc(100vh - 110px)); display: flex; flex-direction: column; padding: 0; box-shadow: var(--shadow); overflow: hidden; }
+.chat-head { display: flex; justify-content: space-between; gap: var(--s-3); align-items: flex-start; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
+.chat-head p { margin: 2px 0 0; }
+.chat-log { flex: 1; overflow-y: auto; padding: var(--s-3) var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); min-height: 140px; }
+.chat-chips { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-2); }
+.chat-chip { cursor: pointer; text-align: left; font: inherit; }
+.chat-chip:hover { background: var(--surface-2); }
+.chat-msg { max-width: 92%; padding: var(--s-2) var(--s-3); border-radius: var(--r-2); border: 1px solid var(--border); background: var(--surface-2); }
+.chat-msg p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-user { align-self: flex-end; background: var(--accent-soft); border-color: var(--accent); }
+.chat-assistant { align-self: flex-start; }
+.chat-note { color: var(--text-muted); border-style: dashed; }
+.chat-pages { margin-top: var(--s-2) !important; color: var(--text-muted); }
+.chat-form { display: flex; gap: var(--s-2); align-items: flex-end; padding: var(--s-3) var(--s-4); border-top: 1px solid var(--border); }
+.chat-form textarea { flex: 1; resize: none; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: var(--r-2); padding: var(--s-2) var(--s-3); }
+.chat-form textarea:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (max-width: 520px) { .chat { right: var(--s-3); bottom: var(--s-3); } .chat-panel { max-height: calc(100vh - 90px); } }
+/* Review has a fixed decision bar along the bottom; keep the assistant clear of it so it never covers Export. */
+body:has(.footer-bar) .chat { bottom: 84px; }
+body:has(.footer-bar) .chat-panel { max-height: min(560px, calc(100vh - 190px)); }

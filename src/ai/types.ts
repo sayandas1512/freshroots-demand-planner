@@ -44,6 +44,11 @@ export interface HeadlineFacts {
   topUrgent: { name: string; action: Action; coverWeeks: number; qty: number | null }[];
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  text: string;
+}
+
 export interface LlmUsage {
   inputTokens: number;
   outputTokens: number;
@@ -64,6 +69,8 @@ export interface LlmProvider {
   readonly model: string;
   explain(facts: ExplainFacts[], signal: AbortSignal): Promise<ExplainResponse>;
   headline(facts: HeadlineFacts, signal: AbortSignal): Promise<HeadlineResponse>;
+  /** Multi-turn chat for the dashboard assistant. Returns the raw text; the caller parses and validates it. */
+  ask?(system: string, messages: ChatMessage[], signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }>;
   /** Optional liveness check used by the Health page. */
   ping?(signal: AbortSignal): Promise<void>;
 }

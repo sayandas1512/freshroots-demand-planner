@@ -3,6 +3,7 @@ import Link from "next/link";
 import { currentActor } from "@/auth/actor";
 import { publicViewEnabled } from "@/auth/public-view";
 import { getUser } from "@/auth/users";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Nav } from "@/components/Nav";
 import { getDb } from "@/db/client";
 import { getKillState } from "@/kill/state";
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       ) : null}
       <main id="main" className="page">{children}</main>
+      {actor ? <ChatPanel /> : null}
     </>
   );
 }

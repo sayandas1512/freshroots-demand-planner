@@ -4,6 +4,7 @@ import "./tokens.css";
 import "./base.css";
 import "./review.css";
 import "./pages.css";
+import "./chat.css";
 
 const head = Familjen_Grotesk({ subsets: ["latin"], variable: "--font-familjen", display: "swap" });
 const body = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans", display: "swap" });

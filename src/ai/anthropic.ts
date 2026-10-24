@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { buildExplainPayload, buildHeadlinePayload } from "./payload";
 import { EXPLAIN_SYSTEM, HEADLINE_SYSTEM } from "./prompts";
-import type { ExplainFacts, ExplainResponse, HeadlineFacts, HeadlineResponse, LlmProvider, LlmUsage } from "./types";
+import type { ChatMessage, ExplainFacts, ExplainResponse, HeadlineFacts, HeadlineResponse, LlmProvider, LlmUsage } from "./types";
 
 const reasonsSchema = z.array(z.object({ sku_id: z.string().min(1), reason: z.string().min(1) }));
 const headlineSchema = z.object({ headline: z.tuple([z.string().min(1), z.string().min(1), z.string().min(1)]) });
@@ -28,6 +28,15 @@ export class AnthropicProvider implements LlmProvider {
   private async complete(system: string, user: string, maxTokens: number, signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> {
     const res = await this.client.messages.create(
       { model: this.model, max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] },
+      { signal },
+    );
+    const text = res.content.map((block) => (block.type === "text" ? block.text : "")).join("");
+    return { text, usage: { inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens } };
+  }
+
+  async ask(system: string, messages: ChatMessage[], signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> {
+    const res = await this.client.messages.create(
+      { model: this.model, max_tokens: 900, system, messages: messages.map((m) => ({ role: m.role, content: m.text })) },
       { signal },
     );
     const text = res.content.map((block) => (block.type === "text" ? block.text : "")).join("");

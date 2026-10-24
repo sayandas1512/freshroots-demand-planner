@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { buildExplainPayload, buildHeadlinePayload } from "./payload";
 import { EXPLAIN_SYSTEM, HEADLINE_SYSTEM } from "./prompts";
-import type { ExplainFacts, ExplainResponse, HeadlineFacts, HeadlineResponse, LlmProvider, LlmUsage } from "./types";
+import type { ChatMessage, ExplainFacts, ExplainResponse, HeadlineFacts, HeadlineResponse, LlmProvider, LlmUsage } from "./types";
 
 const reasonsSchema = z.array(z.object({ sku_id: z.string().min(1), reason: z.string().min(1) }));
 const headlineSchema = z.object({ headline: z.tuple([z.string().min(1), z.string().min(1), z.string().min(1)]) });
@@ -30,6 +30,23 @@ export class GeminiProvider implements LlmProvider {
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
         generationConfig: { temperature: 0, maxOutputTokens: maxTokens, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
+      }),
+      signal,
+    });
+    if (!res.ok) throw new Error(`Gemini returned ${res.status}`);
+    const body = responseSchema.parse(await res.json());
+    const text = (body.candidates[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+    return { text, usage: { inputTokens: body.usageMetadata?.promptTokenCount ?? 0, outputTokens: body.usageMetadata?.candidatesTokenCount ?? 0 } };
+  }
+
+  async ask(system: string, messages: ChatMessage[], signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> {
+    const res = await this.fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.text }] })),
+        generationConfig: { temperature: 0, maxOutputTokens: 900, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
       }),
       signal,
     });
