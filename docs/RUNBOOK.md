@@ -101,3 +101,13 @@ There is no go-live gate: results are judged from the measurement start date, sh
 ## 9. Data and hosting
 
 Commercial data (sales, stock, SKU names, decisions) is stored in Neon Postgres and processed on Vercel. Only computed numbers, SKU names and categories are sent to the LLM provider: never user notes, distributor names or raw tables (enforced in code and tested). IT and the CEO must sign off this hosting before go-live. Choose the Neon region nearest India when creating the project (Singapore, `aws-ap-southeast-1`). Neon keeps point-in-time history: to recover from a bad change, restore a branch from a time before it in the Neon console.
+
+## 10. The dashboard assistant
+
+"Ask the planner" (bottom right of every page) answers questions about the dashboard. It is read-only, has no tools and uses only a facts packet built from the database on each question (`src/chat/facts.ts`).
+
+- **It says it is switched off:** no `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` is set. Refusals still work.
+- **It says it could not check an answer:** the reply failed the checks in `src/chat/guard.ts` (a number not in the facts, a link, a claim to have acted). Look for `chat.answer_rejected` in the logs. This is the guardrail working, not a fault.
+- **It says it is busy:** the model call failed twice (`chat.call_failed` in the logs). The pages have the same information.
+- **Cost:** one model call per question, about the size of the facts packet (a few thousand tokens at 15 SKUs; lines beyond 120 are summarised by count). The rate limit is 12 questions a minute per client.
+- **Changing what it may say:** edit `src/chat/prompt.ts` (instructions and the how-it-works text) and bump `CHAT_PROMPT_VERSION`; edit `src/chat/guard.ts` for the screening and answer checks. Both are covered by `tests/chat.test.ts`.

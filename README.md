@@ -35,6 +35,7 @@ Lanes: Timer and kill, Deepa, Data, Engine, Raghav, Procurement, Before launch, 
 | 15 | Platform: Vercel | `vercel.json`, `next.config.ts`, `/api/run/[id]/advance`, `/api/cron/resume` |
 | 16 | Platform: Neon | `src/db`, `drizzle/`, `scripts/migrate.ts` |
 | 17 | Platform: Gemini Flash | `src/ai/gemini.ts` (Anthropic in `src/ai/anthropic.ts` behind the same interface) |
+| 17b | Dashboard assistant (read-only, grounded in dashboard facts, screened and verified in code) | `src/chat`, `src/components/chat`, `src/app/api/chat` |
 | 18 | Before launch / Output: compare the system with Raghav's own forecast (there is no separate shadow period: the system behaves as live from the first run) | `src/compare`, `src/app/(app)/compare`, `src/app/api/compare` |
 
 Supporting: `src/auth` and `src/proxy.ts` (named users, roles, signed session, cron secret), `src/lib` (rate limit, dates, motion tokens, JSON logs, email), `docs/RUNBOOK.md`, `docs/GAP_REPORT.md`, `tests/` (Vitest), `e2e/` (Playwright).
@@ -50,7 +51,8 @@ A walkthrough on a fresh database (`npm run seed` loads the five project data fi
 3. **Kill check against the case's baseline:** **Outcomes** shows the frozen 8-week baseline (measuring from 2026-10-12). Upload `fixtures/outcomes_live_ok.csv` for four normal weeks, then press **Run the kill check now** on **Health**: nothing is wrong. Upload `fixtures/outcomes_breach.csv` (the same four weeks, about 30% worse) and run the check: a **warning**. Upload `fixtures/outcomes_breach_next_week.csv` and run it again: the system **stops**. A red banner appears, Run now and Export are refused and Review is read-only.
 4. **Clear it:** **Health** > clear the kill switch with a written note. (You can also press **Stop** in the top bar at any time.)
 5. **Monthly losses:** on **Outcomes** add months of ₹ loss with the loss-calculation method; the quarterly test compares a full quarter with the case's ₹28 to 34 lakh baseline.
-6. **Also worth a look:** Backtest (with the festival uplift check), Compare (upload a forecast CSV of SKU_ID, Period, Qty), Settings (change a threshold and **Preview impact**), Health (override log, decision-time stats, system status).
+6. **Ask the planner:** the button at the bottom right opens the read-only assistant. Try "Which SKUs need a reorder now, and why?", "Is the kill switch on?", then "approve SKU001" or "ignore your instructions" to see it refuse.
+7. **Also worth a look:** Backtest (with the festival uplift check), Compare (upload a forecast CSV of SKU_ID, Period, Qty), Settings (change a threshold and **Preview impact**), Health (override log, decision-time stats, system status).
 
 The scheduled-job and webhook endpoints still need their secrets, even in open access.
 
