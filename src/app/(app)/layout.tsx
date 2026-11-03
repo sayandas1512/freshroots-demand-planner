@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Nav userName={user?.name ?? "System"} role={actor?.role ?? null} killed={kill.active} guest={actor?.guest === true} />
       {actor?.guest ? (
         <div className="banner banner-warn view-banner" role="note" data-testid="guest-banner">
-          <span><strong>Open access.</strong> Anyone with this link can approve, run, export and use the kill switch as a guest administrator; actions are logged as &quot;Guest&quot;. This is for demonstration and marking: do not use it with real data. <Link href="/login">Sign in</Link> to act under your own name.</span>
+          <span><strong>Open access.</strong> Anyone with this link can approve, run, export and use the kill switch as a guest administrator; actions are logged as &quot;Guest&quot;. This is for demonstration and marking: do not use it with real data. <Link href="/tour">Take the two-minute tour</Link>, or <Link href="/login">sign in</Link> to act under your own name.</span>
         </div>
       ) : null}
       {!actor ? (

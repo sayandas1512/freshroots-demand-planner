@@ -1,0 +1,144 @@
+/* Visual layer: loaded last, so it refines the component styles without touching them.
+   Direction: near-black canvas with a soft glow, serif display type over a clean sans, big radii, hairline borders,
+   glass bars and pill controls. Colours come from tokens.css; nothing here is hard-coded to a theme. */
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 560px at 50% -12%, var(--glow), transparent 70%),
+    radial-gradient(800px 480px at 94% 6%, var(--glow-2), transparent 62%),
+    var(--bg);
+  background-attachment: fixed;
+  font-size: 14.5px;
+}
+::selection { background: color-mix(in oklab, var(--accent) 35%, transparent); }
+
+/* ---------- type ---------- */
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(32px, 3.4vw, 46px); line-height: 1.04; letter-spacing: -0.02em; }
+h2 { font-weight: 600; font-size: 17px; letter-spacing: -0.012em; }
+h3 { font-weight: 600; font-size: 14.5px; }
+.page-head h1 em, .serif-em { font-style: italic; color: var(--accent); }
+.page-head p { font-size: 15px; line-height: 1.55; }
+.stat-value { font-family: var(--font-display); font-weight: 400; font-size: 40px; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums; }
+.stat-label { letter-spacing: .08em; font-size: 11px; }
+
+/* ---------- the top bar: a floating glass pill ---------- */
+.shell-top {
+  top: 10px; margin: 10px auto 0; width: calc(100% - 24px); max-width: 1480px; height: 54px;
+  padding: 0 10px 0 20px; gap: var(--s-4); border-radius: var(--r-pill);
+  background: var(--glass); border: 1px solid var(--hairline); box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+}
+.brand { font-family: var(--font-display); font-weight: 400; font-size: 24px; letter-spacing: -0.01em; }
+.nav { align-items: center; height: 100%; gap: 2px; }
+.nav a { height: 34px; padding: 0 14px; border: 0; margin: 0; border-radius: var(--r-pill); font-size: 13.5px; transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.nav a:hover { background: color-mix(in oklab, var(--text) 7%, transparent); }
+.nav { position: relative; }
+.nav a { position: relative; z-index: 1; }
+.nav-pill { position: absolute; left: 0; top: 50%; height: 34px; margin-top: -17px; width: 0; opacity: 0; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); pointer-events: none; z-index: 0; will-change: transform, width; }
+.nav a[aria-current="page"] { color: var(--text); }
+.user-chip { padding: 5px 12px; border-radius: var(--r-pill); background: color-mix(in oklab, var(--text) 6%, transparent); }
+.page { padding-top: var(--s-6); }
+.settings-side { top: 92px; }
+
+/* ---------- controls: pills ---------- */
+.btn { border-radius: var(--r-pill); padding: 8px 16px; border-color: var(--hairline); background: color-mix(in oklab, var(--text) 6%, var(--surface)); transition: background var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+.btn:hover:not(:disabled) { background: color-mix(in oklab, var(--text) 11%, var(--surface)); border-color: var(--border-strong); }
+.btn:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+.btn-primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); font-weight: 600; box-shadow: 0 0 0 0 transparent; }
+.btn-primary:hover:not(:disabled) { background: var(--accent); filter: none; box-shadow: 0 8px 28px -8px var(--accent); }
+.btn-sm { padding: 5px 12px; }
+.btn-danger { border-color: color-mix(in oklab, var(--st-stockout) 60%, transparent); }
+input[type="text"], input[type="password"], input[type="number"], input[type="date"], input[type="search"], select, textarea { border-radius: var(--r-2); border-color: var(--hairline); background: color-mix(in oklab, var(--text) 4%, var(--surface)); padding: 8px 12px; transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+input:hover, select:hover, textarea:hover { border-color: var(--border-strong); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+.chip { border-color: color-mix(in oklab, currentColor 45%, transparent); }
+
+/* ---------- cards: soft gradient, hairline, and a spotlight that follows the pointer ---------- */
+.card, .strip, .headline, .table, .inline-panel {
+  border-color: var(--hairline); box-shadow: var(--shadow);
+  background-image: linear-gradient(180deg, color-mix(in oklab, var(--text) 3.5%, transparent), transparent 55%);
+}
+.card, .strip, .headline { position: relative; }
+.card::before, .strip::before, .headline::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .35s var(--ease-out);
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 0%), var(--spot), transparent 70%);
+}
+.card:hover::before, .strip:hover::before, .headline:hover::before { opacity: 1; }
+.card { padding: var(--s-5); border-radius: var(--r-3); }
+.grid { gap: var(--s-4); }
+
+/* ---------- review ---------- */
+.strip { border-radius: var(--r-3); padding: var(--s-5) var(--s-5) var(--s-4); }
+.strip-dot { width: 26px; height: 26px; transition: box-shadow .5s var(--ease-out), background .3s var(--ease-out); }
+.strip-node[data-state="done"] .strip-dot { box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 16%, transparent); }
+.strip-node[data-state="running"] .strip-dot { box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent) 22%, transparent); }
+.strip-rail, .strip-progress { top: 12px; }
+.strip-progress { box-shadow: 0 0 14px var(--accent); }
+.headline { border-left: 1px solid var(--hairline); background-image: radial-gradient(700px 180px at 0% 0%, var(--glow), transparent 70%), linear-gradient(180deg, color-mix(in oklab, var(--text) 3.5%, transparent), transparent 55%); padding: var(--s-5) var(--s-6); }
+.headline-lines p.headline-first { font-family: var(--font-display); font-weight: 400; font-size: clamp(24px, 2.4vw, 32px); line-height: 1.12; letter-spacing: -0.015em; }
+.headline-lines p { font-size: 15px; }
+.tabs { border-bottom-color: var(--hairline); }
+.tab[aria-selected="true"] { border-bottom-width: 2px; }
+.table { border-radius: var(--r-3); margin-bottom: 104px; overflow-x: auto; }
+.row { border-bottom-color: var(--hairline); transition: background var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
+.row:not(.row-head):hover { background: color-mix(in oklab, var(--text) 3.5%, var(--surface)); }
+.row-head { background: color-mix(in oklab, var(--text) 4%, var(--surface)); }
+.row[data-urgent="true"] { background: linear-gradient(90deg, color-mix(in oklab, var(--st-stockout) 14%, var(--surface)), var(--surface) 42%); }
+.row[aria-selected="true"] { outline-color: var(--accent); outline-width: 1.5px; box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 12%, transparent); border-radius: 2px; }
+.action-label { font-family: var(--font-display); font-weight: 400; font-size: 19px; letter-spacing: -0.01em; }
+.gauge-track { height: 8px; border-radius: 4px; }
+.gauge-fill { top: 0; bottom: 0; border-radius: 4px; opacity: 1; box-shadow: 0 0 12px -2px currentColor; }
+.gauge-num { font-family: var(--font-display); font-size: 22px; font-weight: 400; }
+
+/* a floating decision bar instead of a full-width strip */
+.footer-bar {
+  left: 12px; right: 12px; bottom: 12px; border-radius: var(--r-4); border: 1px solid var(--hairline); border-top-color: var(--hairline);
+  background: var(--glass); box-shadow: var(--shadow); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+}
+.progress { height: 5px; border-radius: 3px; }
+.progress span { box-shadow: 0 0 10px var(--accent); }
+body:has(.footer-bar) .chat { bottom: 92px; }
+.banner { border-radius: var(--r-3); }
+
+/* ---------- the assistant ---------- */
+.chat-launch { border-radius: var(--r-pill); padding: 10px 18px; }
+.chat-panel { border-radius: var(--r-4); background: var(--glass); -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); border-color: var(--hairline); }
+.chat-msg { border-radius: var(--r-3); }
+.chat-user { border-radius: var(--r-3) var(--r-3) 4px var(--r-3); }
+.chat-assistant { border-radius: var(--r-3) var(--r-3) var(--r-3) 4px; }
+.chat-form textarea { border-radius: var(--r-3); }
+
+/* ---------- small screens ---------- */
+.kill-banner { animation: banner-in .7s var(--ease-out) both, banner-glow 2.4s ease-in-out 2; }
+@keyframes banner-in { from { opacity: 0; transform: translateY(-14px) scale(.985); } }
+@keyframes banner-glow { 50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--st-stockout) 22%, transparent), 0 0 40px -6px var(--st-stockout); } }
+@media (prefers-reduced-motion: reduce) { .kill-banner { animation: none; } }
+
+@media (max-width: 900px) {
+  .shell-top { height: auto; border-radius: var(--r-4); padding: 8px 12px; }
+  .brand { font-size: 22px; }
+  .nav a { height: 32px; padding: 0 12px; }
+  .settings-side { top: auto; }
+}
+@media (max-width: 700px) {
+  .footer-bar { left: 8px; right: 8px; bottom: 8px; border-radius: var(--r-3); }
+  body:has(.footer-bar) .chat { bottom: 136px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .row, .nav a, .card::before { transition: none; }
+}
+
+/* phones: tighter cards, and form rows that can shrink instead of pushing the page sideways */
+@media (max-width: 560px) {
+  .card { padding: var(--s-4); }
+  .headline { padding: var(--s-4); }
+  .log-search { flex-wrap: wrap; width: 100%; }
+  .log-search input { min-width: 0; flex: 1 1 160px; }
+}
+
+/* page titles rise into focus. Pure CSS on purpose: splitting the heading with script would change server-rendered markup before React has hydrated it. */
+.page-head h1 { animation: title-in 1s var(--ease-out) both; }
+@keyframes title-in { from { opacity: 0; transform: translateY(18px); filter: blur(6px); letter-spacing: -0.045em; } }
+@media (prefers-reduced-motion: reduce) { .page-head h1 { animation: none; } }

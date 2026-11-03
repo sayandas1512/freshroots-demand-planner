@@ -24,6 +24,7 @@ const PAGES: [path: string, heading: string][] = [
   ["/health", "Health"],
   ["/backtest", "Backtest"],
   ["/compare", "Compare with Raghav"],
+  ["/tour", "Know what to reorder"],
 ];
 
 // Anything the browser logs as an error during the whole journey is collected and checked in the last test.
@@ -396,6 +397,35 @@ test("the assistant: answers from live dashboard facts, refuses to act or be ste
   await page.goto("/");
   await expect(page.getByTestId("decided-count")).toContainText(`1 of ${lines} decided`);
   expect(((await (await request.get("/api/health")).json()) as { kill: { active: boolean } }).kill.active).toBe(false);
+});
+
+test("the tour: opens without signing in, tells the story, its dock reaches the live pages, and it is readable with motion off", async ({ page, browser }) => {
+  await page.goto("/tour");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Know what to reorder");
+  await expect(page.locator(".t-step")).toHaveCount(7);
+  await expect(page.getByTestId("user-chip")).toHaveCount(0); // its own header, not the planner's
+
+  // the FAQ opens one answer at a time
+  await expect(page.getByRole("button", { name: "Do I need to sign in?" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Does it place orders?" }).click();
+  await expect(page.getByRole("button", { name: "Does it place orders?" })).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "Do I need to sign in?" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("The connector has no code path that issues an order.")).toBeVisible();
+
+  // the dock goes to the real pages, and the planner links back to the tour
+  await page.getByRole("link", { name: "Health", exact: true }).click();
+  await expect(page).toHaveURL(/\/health$/);
+  await expect(page.getByTestId("guest-banner").getByRole("link", { name: "Take the two-minute tour" })).toBeVisible();
+  await page.getByTestId("guest-banner").getByRole("link", { name: "Take the two-minute tour" }).click();
+  await expect(page).toHaveURL(/\/tour$/);
+
+  // reduced motion: no pinning, every step readable at once, and the picture shows its finished state
+  const calm = await browser.newContext({ reducedMotion: "reduce", baseURL: "http://localhost:3202" });
+  const p2 = await calm.newPage();
+  await p2.goto("/tour");
+  await expect(p2.locator(".t-step.is-on")).toHaveCount(7);
+  expect(await p2.locator(".pin-spacer").count()).toBe(0);
+  await calm.close();
 });
 
 test("every page, on a laptop and on a phone: no overflow, and the browser logged no errors anywhere in the journey", async ({ page }) => {

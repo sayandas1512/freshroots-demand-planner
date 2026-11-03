@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "pg"],
   poweredByHeader: false,
+  // Do not generate an AGENTS.md in the repository on every dev start.
+  agentRules: false,
   async headers() {
     return [
       {

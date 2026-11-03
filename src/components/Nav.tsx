@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ROLE_LABEL, type Role } from "@/auth/roles";
+import { gsap, useGSAP } from "@/lib/gsap";
 import { StopControl } from "./StopControl";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -20,6 +22,34 @@ const LINKS = [
 export function Nav({ userName, role, killed, guest = false }: { userName: string; role: Role | null; killed: boolean; guest?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
+  const nav = useRef<HTMLElement>(null);
+  const pill = useRef<HTMLSpanElement>(null);
+  const placed = useRef(false);
+
+  // A pill slides to the page you are on (and snaps there on first paint, on resize, and with reduced motion).
+  useGSAP(
+    () => {
+      const el = nav.current;
+      const p = pill.current;
+      if (!el || !p) return;
+      const place = (animate: boolean) => {
+        const active = el.querySelector<HTMLElement>('a[aria-current="page"]');
+        if (!active) {
+          gsap.set(p, { opacity: 0 });
+          return;
+        }
+        const to = { x: active.offsetLeft, width: active.offsetWidth, opacity: 1 };
+        if (animate && placed.current && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) gsap.to(p, { ...to, duration: 0.6, ease: "expo.out", overwrite: true });
+        else gsap.set(p, to);
+        placed.current = true;
+      };
+      place(true);
+      const observer = new ResizeObserver(() => place(false));
+      observer.observe(el);
+      return () => observer.disconnect();
+    },
+    { dependencies: [pathname], scope: nav },
+  );
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -35,7 +65,8 @@ export function Nav({ userName, role, killed, guest = false }: { userName: strin
         </svg>
         Freshroots
       </Link>
-      <nav className="nav" aria-label="Main">
+      <nav className="nav" aria-label="Main" ref={nav}>
+        <span className="nav-pill" ref={pill} aria-hidden="true" />
         {LINKS.map((l) => {
           const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
           return (

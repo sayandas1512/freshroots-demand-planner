@@ -91,11 +91,18 @@ From the command line:
 npm run run:now -- --as-of=2026-10-19                                   # run the engine, print every line
 npm run backtest -- --from 2026-W39 --to 2026-W42 [--orders orders.csv] # replay past weeks
 npm test                                                                  # unit and integration tests
-npm run test:e2e                                                          # Playwright, 28 tests on three servers (see below)
+npm run test:e2e                                                          # Playwright, 29 tests on three servers (see below)
 LIVE_URL=https://your-site.vercel.app npm run test:live                   # read-only smoke test of a deployed site
 npm run gen:synthetic                                                     # 400 SKUs, 156 weeks, 1,200 distributors into fixtures/synthetic
 npm run build                                                             # production build
 ```
+
+## Look and motion
+
+- **Visual system:** a dark-first palette (a light theme is one click away), serif display type (Instrument Serif) over Inter, large radii, hairline borders, a glass top bar and decision bar, pill controls, and a soft spotlight that follows the pointer across cards. Every colour is a token in `src/app/tokens.css` and is checked against WCAG AA by `tests/contrast.test.ts`; the layer on top is `src/app/visual.css`.
+- **The tour (`/tour`):** a public, scroll-driven page that explains the system with moving pictures. A product window rises into place as you scroll, then a pinned scene plays one run end to end (files arrive, gauges fill, an exception goes to Raghav, the model's wording is number-checked, lines are approved, a Zoho draft appears, the kill switch trips and is cleared). It ends with a dock of the live pages that swells as the pointer nears it. Built with GSAP ScrollTrigger, SplitText, DrawSVG and quickTo in `src/app/tour`. On a phone the story autoplays instead of pinning, and with reduced motion nothing moves and every step is readable at once.
+- **In the planner:** the nav pill slides to the page you are on, primary buttons lean toward the pointer, the kill-switch banner drops in, and page titles rise into focus. All of it is off for reduced motion, and the pointer effects are off on touch screens and in automated browsers.
+- Motion that changes markup (such as splitting text) only runs inside client components after they have hydrated; anything that touches server-rendered markup earlier is done in CSS, because script that edits it first makes React report a hydration mismatch.
 
 ## End-to-end tests
 

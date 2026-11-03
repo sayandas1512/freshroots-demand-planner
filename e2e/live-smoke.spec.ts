@@ -16,6 +16,7 @@ const PAGES: [path: string, heading: string][] = [
   ["/health", "Health"],
   ["/backtest", "Backtest"],
   ["/compare", "Compare with Raghav"],
+  ["/tour", "Know what to reorder"],
 ];
 
 const errors: string[] = [];
