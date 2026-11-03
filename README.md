@@ -91,10 +91,23 @@ From the command line:
 npm run run:now -- --as-of=2026-10-19                                   # run the engine, print every line
 npm run backtest -- --from 2026-W39 --to 2026-W42 [--orders orders.csv] # replay past weeks
 npm test                                                                  # unit and integration tests
-npm run test:e2e                                                          # Playwright (builds, seeds, starts a server on :3200)
+npm run test:e2e                                                          # Playwright, 28 tests on three servers (see below)
+LIVE_URL=https://your-site.vercel.app npm run test:live                   # read-only smoke test of a deployed site
 npm run gen:synthetic                                                     # 400 SKUs, 156 weeks, 1,200 distributors into fixtures/synthetic
 npm run build                                                             # production build
 ```
+
+## End-to-end tests
+
+`npm run test:e2e` builds the app and runs three Playwright projects, each on its own server and embedded database:
+
+- **main** (`e2e/review-flow.spec.ts`): named users and roles, the kill switch, Zoho drafts, public view, sign-in links, themes, a 400-SKU table.
+- **open** (`e2e/open-access.spec.ts`): the reviewer's path with only the link.
+- **system** (`e2e/full-system.spec.ts`): the whole case as one journey, in the order a real fortnight goes. Empty start, Monday's run with Gemini wording, the planner's decisions, export and Zoho drafts, week two's new sales and stock (one SKU's sales jump tenfold and go to Raghav as an exception), a scheduled run, Gemini failing and then inventing numbers (the guardrails throw them out, the run still completes), a settings change that the next run uses, outcomes taking the kill switch from warning to stop (with the alert e-mail) and back to a cleared stop, backtest and comparison, the Health story, the assistant, and a last sweep of every page on a laptop and a phone for console errors and sideways scrolling.
+
+The system journey uses stand-ins for the three outside services, in `e2e/`: `fake-gemini-server.ts` (answers run wording and assistant questions from the facts it is sent, and can be told to fail or to invent numbers), `fake-zoho-server.ts` and `fake-resend-server.ts` (records the alert e-mails). Everything else is the real application. Point the app at another Gemini endpoint with `GEMINI_API_BASE_URL` and at another Resend endpoint with `RESEND_API_URL`.
+
+`npm run test:live` is for a deployed copy and only reads: every page opens, health answers, the machine routes refuse strangers, the assistant's refusals work, no console errors, no sideways scrolling. It never approves, runs, uploads, saves or stops anything.
 
 ## Environment variables
 
