@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { ColumnChart } from "@/components/charts/ColumnChart";
+import { Donut } from "@/components/charts/Donut";
 import type { BacktestSummary } from "@/backtest/compare";
 import type { CompareRow } from "@/compare/compare";
 
@@ -68,6 +70,33 @@ export function CompareClient() {
             <div className="card stat"><span className="stat-label">Agreement</span><span className="stat-value" data-testid="compare-rate">{pct(result.summary.overall.rate)}</span><span className="muted small">{result.summary.overall.agreed} of {result.summary.overall.compared} comparable SKU-months (order or not)</span></div>
             <div className="card stat"><span className="stat-label">Disagreements</span><span className="stat-value num">{result.disagreementCount}</span><span className="muted small">with the system&apos;s reason below</span></div>
             <div className="card stat"><span className="stat-label">Months compared</span><span className="stat-value num">{result.periods.length}</span><span className="muted small">{result.periods.join(", ")}</span></div>
+          </div>
+          <div className="charts-grid" data-testid="compare-charts">
+            <div className="card chart-card">
+              <h2>Do we agree?</h2>
+              <p className="chart-sub">Every SKU-month in his file, against what the system recommended.</p>
+              <Donut
+                testId="donut-agreement"
+                title="Agreement with Raghav"
+                segments={[
+                  { key: "agree", label: "Agree", value: result.rows.filter((r) => r.agreed === true).length, color: "var(--accent)" },
+                  { key: "disagree", label: "Disagree", value: result.rows.filter((r) => r.agreed === false).length, color: "var(--st-stockout)" },
+                  { key: "na", label: "Not comparable", value: result.rows.filter((r) => r.agreed === null).length, color: "var(--text-faint)" },
+                ]}
+                centerValue={pct(result.summary.overall.rate)}
+                centerLabel="agreement"
+              />
+            </div>
+            <div className="card chart-card">
+              <h2>By what the system recommended</h2>
+              <p className="chart-sub">Where the two of you part ways.</p>
+              <ColumnChart
+                testId="chart-agreement-actions"
+                title="Agreement by system action"
+                columns={Object.entries(result.summary.byAction).map(([action, a]) => ({ label: label(action), stacks: [{ key: "agree", label: "Agree", value: a.agreed, color: "var(--accent)" }, { key: "disagree", label: "Disagree", value: a.compared - a.agreed, color: "var(--st-stockout)" }] }))}
+                legend={[{ label: "Agree", color: "var(--accent)" }, { label: "Disagree", color: "var(--st-stockout)" }]}
+              />
+            </div>
           </div>
           <div className="card section">
             <div className="log-head">

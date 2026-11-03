@@ -116,6 +116,21 @@ test("the planner decides line by line: approve, edit with a reason, reject with
 
   await expect(page.getByTestId("decided-count")).toContainText("4 of 15 decided");
   await expect(page.getByTestId("export-link")).toContainText("Export approved (3)");
+
+  // the charts above the table follow the same decisions, and a slice filters the table
+  await expect(page.getByTestId("donut-decisions").locator(".donut-value")).toHaveText("4/15");
+  await expect(page.getByTestId("donut-decisions-legend-approved")).toContainText("2");
+  await expect(page.getByTestId("donut-actions").locator(".donut-value")).toHaveText("15");
+  await page.getByTestId("donut-actions-legend-REORDER_NOW").click();
+  await expect(page.getByLabel("Filter by action")).toHaveValue("REORDER_NOW");
+  const reorderNow = await page.locator('[data-testid^="row-"]').count();
+  expect(reorderNow).toBeGreaterThan(0);
+  expect(reorderNow).toBeLessThan(15);
+  await expect(page.getByTestId("donut-actions-legend-REORDER_NOW")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("donut-actions-legend-REORDER_NOW").click(); // clicking it again clears the filter
+  await expect(page.getByLabel("Filter by action")).toHaveValue("all");
+  await expect(page.locator('[data-testid^="row-"]')).toHaveCount(15);
+  await expect(page.getByTestId("chart-cover")).toBeVisible();
   await page.reload();
   await expect(page.getByTestId("decided-count")).toContainText("4 of 15 decided"); // saved, not just on screen
 });
@@ -248,9 +263,25 @@ test("a settings change is a new version with a note, and the next run uses it; 
 test("outcomes feed the kill switch: warning, stop with an alert e-mail, everything read-only, then a cleared stop with a note", async ({ page, request }) => {
   await page.goto("/outcomes");
   await expect(page.getByTestId("frozen-table").locator("tbody tr")).toHaveCount(8); // the baseline the case supplies
+  await expect(page.getByTestId("gauge-stockout")).toHaveAttribute("data-level", "no_data"); // no live weeks yet: the dial says so
+  await expect(page.getByTestId("trend-stockout")).toBeVisible();
+
+  // finance's monthly losses feed the column chart and the pie
+  for (const m of [{ period: "2026-09", a: 1200000, b: 400000 }, { period: "2026-10", a: 1500000, b: 350000 }]) {
+    expect((await request.post("/api/outcomes/monthly", { data: { period: m.period, stockoutLossInr: m.a, writeoffInr: m.b, methodNote: "Lost units x margin from SAP out-of-stock days" } })).status()).toBe(200);
+  }
+  await page.reload();
+  await expect(page.getByTestId("chart-monthly")).toBeVisible();
+  await expect(page.getByTestId("donut-loss").locator(".donut-value")).toHaveText("₹34.5L"); // 1.2+0.4+1.5+0.35 lakh x 10
+  await expect(page.getByTestId("donut-loss-legend-stockout")).toContainText("₹27.0L");
+
   await page.getByLabel("Weekly outcomes CSV").setInputFiles("fixtures/outcomes_breach.csv");
   await page.getByRole("button", { name: "Upload CSV" }).click();
   await expect(page.getByText("4 weeks saved, 0 rows rejected.")).toBeVisible();
+  // the dials use the kill check's own arithmetic: about 34% worse is past the 20% stopping line
+  await expect(page.getByTestId("gauge-stockout")).toHaveAttribute("data-level", "kill");
+  await expect(page.getByTestId("gauge-stockout")).toContainText("Past the stopping line");
+  await expect(page.getByTestId("gauge-overstock")).toHaveAttribute("data-level", "kill");
 
   await page.goto("/health");
   await page.getByTestId("run-kill-check").click();
@@ -287,6 +318,8 @@ test("outcomes feed the kill switch: warning, stop with an alert e-mail, everyth
   await page.getByLabel("Weekly outcomes CSV").setInputFiles({ name: "w46.csv", mimeType: "text/csv", buffer: Buffer.from("Week,Stockout_Incidents,Overstock_Value_INR\n2026-W46,11,1010000\n") });
   await page.getByRole("button", { name: "Upload CSV" }).click();
   await expect(page.getByText("1 weeks saved, 0 rows rejected.")).toBeVisible();
+  await expect(page.getByTestId("gauge-stockout")).toHaveAttribute("data-level", "ok"); // recovered weeks bring the dial back inside the limits
+  await expect(page.getByTestId("gauge-stockout")).toContainText("Within limits");
   await page.goto("/health");
   await page.getByTestId("clear-note").fill("Reviewed the supplier delays, safe to restart");
   await page.getByTestId("clear-kill").click();
@@ -313,6 +346,8 @@ test("backtest, festival check and the comparison with Raghav's own orders", asy
   await page.getByLabel("Forecast CSV").setInputFiles({ name: "raghav.csv", mimeType: "text/csv", buffer: Buffer.from("SKU_ID,Period,Qty\nSKU001,2026-10,750\nSKU003,2026-10,0\n") });
   await page.getByTestId("run-compare").click();
   await expect(page.getByTestId("compare-table")).toContainText("SKU003");
+  await expect(page.getByTestId("donut-agreement").locator(".donut-value")).toContainText("%");
+  await expect(page.getByTestId("chart-agreement-actions")).toBeVisible();
 
   await page.goto("/backtest");
   await expect(page.getByTestId("festival-check")).toContainText("Festival uplift check");

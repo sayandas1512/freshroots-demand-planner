@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { formatIst } from "@/lib/dates";
+import { OutcomesCharts } from "./OutcomesCharts";
 
 interface Props {
   canEdit: boolean;
@@ -12,11 +13,13 @@ interface Props {
   monthly: { period: string; stockoutLoss: number; writeoff: number; method: string }[];
   frozen: { week: string; stockout: number; overstock: number; at: string }[];
   methodChanges: { period: string; previous: string; note: string }[];
+  warnPct: number;
+  killPct: number;
 }
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, frozen, methodChanges }: Props) {
+export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, frozen, methodChanges, warnPct, killPct }: Props) {
   const router = useRouter();
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -109,6 +112,8 @@ export function OutcomesClient({ canEdit, canRestart, since, weekly, monthly, fr
           <span><strong>The loss method changed between periods.</strong> {methodChanges.map((c) => `${c.period} differs from ${c.previous}`).join("; ")}. Do not compare those months without checking.</span>
         </div>
       ) : null}
+
+      <OutcomesCharts since={since} weekly={weekly} frozen={frozen} monthly={monthly} warnPct={warnPct} killPct={killPct} />
 
       <div className="grid grid-2">
         <section className="card section" aria-labelledby="wk-h">

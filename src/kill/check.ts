@@ -81,7 +81,7 @@ export function percentWorse(average: number, baseline: number): number {
   return ((average - baseline) / baseline) * 100;
 }
 
-function levelFor(worse: number, killPct: number, warnPct: number): Level {
+export function levelFor(worse: number, killPct: number, warnPct: number): Level {
   return worse > killPct ? "kill" : worse > warnPct ? "warn" : "none";
 }
 

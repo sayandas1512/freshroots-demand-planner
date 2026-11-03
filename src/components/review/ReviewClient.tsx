@@ -11,6 +11,7 @@ import { Headline } from "./Headline";
 import type { PanelMode } from "./InlinePanel";
 import { RecRow, ROW_HEIGHT } from "./RecRow";
 import { RunStrip, stripStates } from "./RunStrip";
+import { ReviewGlance } from "./ReviewGlance";
 import { DEFAULT_FILTERS, VIRTUALIZE_ABOVE, visibleRows, type Filters, type SortKey } from "./filters";
 import { ACTION_LABEL, Chip, EXCEPTION_LABEL, IconException } from "./ui";
 import { useRunEvents } from "./useRunEvents";
@@ -414,6 +415,27 @@ export function ReviewClient({ data, today, killed, canDecide, canExport, canRun
       ) : (
         <>
           {data?.headline ? <Headline runId={run.id} lines={data.headline.lines} source={data.headline.source} /> : null}
+
+          <ReviewGlance
+            rows={rows}
+            openExceptions={openExceptions}
+            actionFilter={filters.action}
+            statusFilter={filters.status}
+            onAction={(k) => {
+              if (k === "EXCEPTION") {
+                setTab("exceptions");
+                setSelectedId(null);
+                setPanel(null);
+                return;
+              }
+              setTab("lines");
+              changeView(() => setFilters({ ...filters, action: filters.action === k ? "all" : k }));
+            }}
+            onStatus={(k) => {
+              setTab("lines");
+              changeView(() => setFilters({ ...filters, status: filters.status === k ? "all" : k }));
+            }}
+          />
 
           <details className="help">
             <summary>How the action is chosen</summary>

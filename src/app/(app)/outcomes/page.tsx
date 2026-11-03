@@ -3,6 +3,7 @@ import { can } from "@/auth/roles";
 import { getDb } from "@/db/client";
 import { todayIst } from "@/lib/dates";
 import { loadOutcomes } from "@/outcomes/store";
+import { getActiveConfig } from "@/run/config-store";
 import { ensureMeasurementStart } from "@/run/measurement";
 import { OutcomesClient } from "./OutcomesClient";
 
@@ -11,7 +12,7 @@ export const metadata = { title: "Outcomes · Freshroots" };
 
 export default async function OutcomesPage() {
   const db = await getDb();
-  const [o, actor, since] = await Promise.all([loadOutcomes(db), currentActor(), ensureMeasurementStart(db, todayIst())]);
+  const [o, actor, since, { config }] = await Promise.all([loadOutcomes(db), currentActor(), ensureMeasurementStart(db, todayIst()), getActiveConfig(db)]);
   return (
     <OutcomesClient
       canEdit={can(actor?.role, "outcomes")}
@@ -21,6 +22,8 @@ export default async function OutcomesPage() {
       monthly={o.monthly.map((m) => ({ period: m.period, stockoutLoss: m.stockoutLossInr, writeoff: m.writeoffInr, method: m.methodNote }))}
       frozen={o.frozen.map((f) => ({ week: f.week, stockout: f.stockoutIncidents, overstock: f.overstockValueInr, at: f.frozenAt.toISOString() }))}
       methodChanges={o.methodChanges}
+      warnPct={config.indicator_warn_pct}
+      killPct={config.indicator_kill_pct}
     />
   );
 }

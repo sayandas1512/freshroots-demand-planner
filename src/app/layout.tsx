@@ -6,6 +6,7 @@ import "./review.css";
 import "./pages.css";
 import "./chat.css";
 import "./visual.css";
+import "./charts.css";
 import { Magnetic } from "@/components/Magnetic";
 import { Spotlight } from "@/components/Spotlight";
 
