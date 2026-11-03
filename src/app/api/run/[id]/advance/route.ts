@@ -3,6 +3,7 @@ import { z } from "zod";
 import { isResponse, requirePermission } from "@/auth/actor";
 import { getDb } from "@/db/client";
 import { driveRun } from "@/run/drive";
+import { publicOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -14,7 +15,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { id } = await ctx.params;
   if (!z.string().uuid().safeParse(id).success) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const db = await getDb();
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   after(() => driveRun(db, origin, id));
   return NextResponse.json({ accepted: true }, { status: 202 });
 }

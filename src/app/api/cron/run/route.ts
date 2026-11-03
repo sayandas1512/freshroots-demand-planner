@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { todayIst } from "@/lib/dates";
 import { driveRun } from "@/run/drive";
 import { startRun } from "@/run/execute";
+import { publicOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   const db = await getDb();
   const started = await startRun(db, { trigger: "cron", asOf: todayIst() });
   if (started.reason === "killed") return NextResponse.json({ runId: started.runId, reason: "killed" });
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   if (started.created) after(() => driveRun(db, origin, started.runId));
   return NextResponse.json({ runId: started.runId, reason: started.reason });
 }

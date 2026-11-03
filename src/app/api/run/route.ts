@@ -7,6 +7,7 @@ import { todayIst } from "@/lib/dates";
 import { clientKey, rateLimit } from "@/lib/ratelimit";
 import { driveRun } from "@/run/drive";
 import { startRun } from "@/run/execute";
+import { publicOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
   const db = await getDb();
   const started = await startRun(db, { trigger: "manual", asOf: parsed.data.asOf ?? todayIst(), startedBy: actor.userId });
   if (started.reason === "killed") return NextResponse.json({ error: "The kill switch is on. Nothing was run.", runId: started.runId, reason: "killed" }, { status: 423 });
-  const origin = new URL(request.url).origin;
+  const origin = publicOrigin(request);
   if (started.created) after(() => driveRun(db, origin, started.runId));
   return NextResponse.json({ runId: started.runId, reason: started.reason });
 }
