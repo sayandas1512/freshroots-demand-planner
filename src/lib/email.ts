@@ -16,7 +16,7 @@ export async function sendEmail(to: string[], email: Email, fetchImpl: typeof fe
     return false;
   }
   try {
-    const res = await fetchImpl("https://api.resend.com/emails", {
+    const res = await fetchImpl(process.env.RESEND_API_URL ?? "https://api.resend.com/emails", {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({ from: process.env.ALERT_FROM ?? "Freshroots Planner <onboarding@resend.dev>", to, subject: email.subject, text: email.text }),

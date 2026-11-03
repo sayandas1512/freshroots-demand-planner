@@ -14,16 +14,19 @@ function parseJson(text: string): unknown {
   return JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
 }
 
+export const GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+
 /** Gemini Flash through the Generative Language REST API, behind the same interface as every other provider. */
 export class GeminiProvider implements LlmProvider {
   constructor(
     private readonly apiKey: string,
     readonly model: string,
     private readonly fetchImpl: typeof fetch = fetch,
+    private readonly baseUrl: string = GEMINI_DEFAULT_BASE_URL,
   ) {}
 
   private async complete(system: string, user: string, maxTokens: number, signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> {
-    const res = await this.fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
+    const res = await this.fetchImpl(`${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
       body: JSON.stringify({
@@ -40,7 +43,7 @@ export class GeminiProvider implements LlmProvider {
   }
 
   async ask(system: string, messages: ChatMessage[], signal: AbortSignal): Promise<{ text: string; usage: LlmUsage }> {
-    const res = await this.fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
+    const res = await this.fetchImpl(`${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
       body: JSON.stringify({

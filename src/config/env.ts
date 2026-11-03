@@ -8,6 +8,8 @@ const schema = z.object({
   /** Which provider writes the wording. Default: Gemini when GEMINI_API_KEY is set, else Anthropic when ANTHROPIC_API_KEY is set. */
   LLM_PROVIDER: z.enum(["gemini", "anthropic"]).optional(),
   GEMINI_API_KEY: z.string().optional(),
+  /** Override the Gemini endpoint (tests point it at a stand-in server). Default is Google's. */
+  GEMINI_API_BASE_URL: z.string().url().optional(),
   /** Defaults per provider (see src/ai/index.ts). */
   LLM_MODEL: z.string().min(1).optional(),
   LLM_PRICE_IN_PER_MTOK: z.coerce.number().nonnegative().default(1),

@@ -112,3 +112,11 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
   .row .cell, .progress span { transition: none; }
 }
 
+
+/* Small screens: let the decision bar wrap (progress on its own line) so Export is never pushed off the screen. */
+@media (max-width: 700px) {
+  .footer-bar { flex-wrap: wrap; padding: var(--s-2) var(--s-3); gap: var(--s-2) var(--s-3); }
+  .footer-bar .progress { flex: 1 0 100%; width: auto; }
+  .footer-bar .shell-spacer { display: none; }
+  .footer-bar .btn { margin-left: auto; }
+}

@@ -16,7 +16,7 @@ export function configuredProvider(): "gemini" | "anthropic" | null {
 export function createProvider(): LlmProvider | null {
   const env = getEnv();
   const kind = configuredProvider();
-  if (kind === "gemini") return new GeminiProvider(env.GEMINI_API_KEY as string, env.LLM_MODEL ?? DEFAULT_MODELS.gemini);
+  if (kind === "gemini") return new GeminiProvider(env.GEMINI_API_KEY as string, env.LLM_MODEL ?? DEFAULT_MODELS.gemini, fetch, env.GEMINI_API_BASE_URL);
   if (kind === "anthropic") return new AnthropicProvider(env.ANTHROPIC_API_KEY as string, env.LLM_MODEL ?? DEFAULT_MODELS.anthropic);
   return null;
 }

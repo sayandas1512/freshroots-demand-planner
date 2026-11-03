@@ -7,8 +7,10 @@ zoho.items = ["SKU001", "SKU002", "SKU003", "SKU004", "SKU005"].map((sku, i) => 
 zoho.vendors = [{ contact_id: "vendor-A", contact_name: "Sahyadri Supplies" }, { contact_id: "vendor-B", contact_name: "Deccan Wholesale" }];
 zoho.pos = [{ purchaseorder_id: "po-open-1", purchaseorder_number: "PO-0001", status: "issued", vendor_id: "vendor-A", total: 1200, delivery_date: "2026-10-25", line_items: [{ item_id: "item-SKU001", quantity: 300, quantity_received: 0 }] }];
 
+const PORT = Number(process.env.FAKE_ZOHO_PORT ?? 4010);
+
 createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", "http://localhost:4010");
+  const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   if (url.pathname === "/__state") {
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ pos: zoho.pos, calls: zoho.calls.map((c) => `${c.method} ${c.path}`) }));
@@ -22,4 +24,4 @@ createServer(async (req, res) => {
   res.statusCode = out.status;
   out.headers.forEach((v, k) => res.setHeader(k, v));
   res.end(await out.text());
-}).listen(4010, () => console.log("fake zoho on 4010"));
+}).listen(PORT, () => console.log(`fake zoho on ${PORT}`));
