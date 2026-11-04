@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { niceScale } from "@/components/charts/scale";
+import { changeWords, niceScale } from "@/components/charts/scale";
 import { actionMix, coverColumns, decisionMix, zoneOf } from "@/components/review/glance";
 import type { ReviewRow } from "@/run/review-types";
 
@@ -50,5 +50,16 @@ describe("niceScale", () => {
     expect(niceScale(1_420_000, 3).ticks).toEqual([0, 500_000, 1_000_000, 1_500_000]);
     expect(niceScale(0).ticks.length).toBeGreaterThan(1); // nothing to plot still gives an axis
     expect(niceScale(7).ticks).toEqual([0, 2, 4, 6, 8]);
+  });
+});
+
+describe("changeWords", () => {
+  it("says better for a negative change and worse for a positive one", () => {
+    expect(changeWords(-9.64)).toEqual({ amount: "9.6%", direction: "better" });
+    expect(changeWords(12.04)).toEqual({ amount: "12.0%", direction: "worse" });
+  });
+  it("calls a change that rounds to zero level", () => {
+    expect(changeWords(0.02).direction).toBe("level");
+    expect(changeWords(-0.04).direction).toBe("level");
   });
 });

@@ -44,6 +44,7 @@
 .ag-tick { font: 600 9.5px var(--font-mono); }
 .ag-read { display: grid; gap: 2px; justify-items: center; margin-top: -6px; }
 .ag-num { font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 1; letter-spacing: -.02em; }
+.ag-dir { font-size: 14px; color: var(--text-muted); }
 .ag-word { font-weight: 600; font-size: 13px; }
 .gauge-card[data-level="kill"] { border-color: color-mix(in oklab, var(--st-stockout) 55%, transparent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--st-stockout) 10%, transparent); }
 .gauge-card[data-level="warn"] { border-color: color-mix(in oklab, var(--st-demand) 55%, transparent); }

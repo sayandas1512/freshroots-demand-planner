@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { FULL_MOTION_QUERY, motionTokens } from "@/lib/motion";
 import { ScrollTrigger, gsap, useGSAP } from "@/lib/gsap";
+import { changeWords } from "./scale";
 
 interface Props {
   /** Percent worse than the baseline; null when it cannot be judged yet. */
@@ -19,6 +20,8 @@ const CY = 96;
 const R = 78;
 const MIN = -20;
 const MAX_FACTOR = 2; // the dial ends at twice the stopping line
+
+const directionText = (d: "better" | "worse" | "level") => (d === "level" ? "same as baseline" : `${d} than baseline`);
 
 const polar = (deg: number, r = R) => ({ x: CX + r * Math.cos((Math.PI * (180 + deg)) / 180), y: CY + r * Math.sin((Math.PI * (180 + deg)) / 180) });
 const arc = (a: number, b: number, r = R) => {
@@ -63,7 +66,7 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
             if (fill) gsap.to(fill, { drawSVG: `0% ${(target / 180) * 100}%`, duration: t.slow * 1.4, ease: t.easeOut });
             if (num && value !== null) {
               const o = { v: 0 };
-              gsap.to(o, { v: value, duration: t.slow * 1.4, ease: t.easeOut, onUpdate: () => { num.textContent = `${o.v >= 0 ? "+" : ""}${o.v.toFixed(1)}%`; } });
+              gsap.to(o, { v: value, duration: t.slow * 1.4, ease: t.easeOut, onUpdate: () => { num.textContent = changeWords(o.v).amount; } });
             }
           },
         });
@@ -79,13 +82,13 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
   const tip = polar(0, R - 12);
   return (
     <div className="gauge-card" ref={root} data-testid={testId} data-level={level}>
-      <svg viewBox="0 0 200 118" role="img" aria-label={`${title}: ${value === null ? "not enough weeks to judge" : `${value.toFixed(1)}% worse than the baseline, ${word.toLowerCase()}`}. Warning above ${warnPct}%, stop above ${killPct}%.`}>
+      <svg viewBox="0 0 200 118" role="img" aria-label={`${title}: ${value === null ? "not enough weeks to judge" : `${changeWords(value).amount} ${directionText(changeWords(value).direction)}, ${word.toLowerCase()}`}. Warning above ${warnPct}%, stop above ${killPct}%.`}>
         <path d={arc(0, toDeg(warnPct))} fill="none" stroke="var(--gauge-band)" strokeWidth="14" />
         <path d={arc(toDeg(warnPct), toDeg(killPct))} fill="none" stroke="var(--st-demand-bg)" strokeWidth="14" />
         <path d={arc(toDeg(killPct), 180)} fill="none" stroke="var(--st-stockout-bg)" strokeWidth="14" />
         <path d={arc(0, toDeg(warnPct))} fill="none" stroke="var(--accent)" strokeWidth="2" opacity=".55" transform="translate(0 -11)" strokeDasharray="1 5" />
         {value !== null ? <path className="ag-fill" d={arc(0, Math.max(target, 0.01))} fill="none" stroke={colour} strokeWidth="14" strokeLinecap="round" opacity=".9" /> : null}
-        {[{ v: warnPct, c: "var(--st-demand)", l: `+${warnPct}%` }, { v: killPct, c: "var(--st-stockout)", l: `+${killPct}%` }].map((m) => {
+        {[{ v: warnPct, c: "var(--st-demand)", l: `${warnPct}% worse` }, { v: killPct, c: "var(--st-stockout)", l: `${killPct}% worse` }].map((m) => {
           const a = polar(toDeg(m.v), R + 13);
           return <text key={m.l} x={a.x} y={a.y + 3} textAnchor="middle" className="ag-tick" fill={m.c}>{m.l}</text>;
         })}
@@ -96,7 +99,8 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
         </g>
       </svg>
       <div className="ag-read">
-        <strong className="ag-num" style={{ color: colour }}>{value === null ? "n/a" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}</strong>
+        <strong className="ag-num" style={{ color: colour }}>{value === null ? "n/a" : changeWords(value).amount}</strong>
+        {value !== null ? <span className="ag-dir" data-testid={testId ? `${testId}-direction` : undefined}>{directionText(changeWords(value).direction)}</span> : null}
         <span className="ag-word" style={{ color: colour }}>{word}</span>
         <span className="muted small">{detail}</span>
       </div>

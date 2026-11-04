@@ -281,6 +281,7 @@ test("outcomes feed the kill switch: warning, stop with an alert e-mail, everyth
   // the dials use the kill check's own arithmetic: about 34% worse is past the 20% stopping line
   await expect(page.getByTestId("gauge-stockout")).toHaveAttribute("data-level", "kill");
   await expect(page.getByTestId("gauge-stockout")).toContainText("Past the stopping line");
+  await expect(page.getByTestId("gauge-stockout-direction")).toContainText("worse than baseline");
   await expect(page.getByTestId("gauge-overstock")).toHaveAttribute("data-level", "kill");
 
   await page.goto("/health");
