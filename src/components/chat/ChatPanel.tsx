@@ -121,8 +121,24 @@ export function ChatPanel() {
           </form>
         </section>
       ) : null}
-      <button type="button" className="btn btn-primary chat-launch" aria-expanded={open} onClick={() => setOpen((o) => !o)} data-testid="chat-launch">
-        {open ? "Hide assistant" : "Ask the planner"}
+      <button
+        type="button"
+        className="btn btn-primary chat-launch"
+        aria-expanded={open}
+        aria-label={open ? "Hide the assistant" : "Ask the planner"}
+        title={open ? "Hide the assistant" : "Ask the planner: an AI assistant that answers questions about this dashboard"}
+        onClick={() => setOpen((o) => !o)}
+        data-testid="chat-launch"
+      >
+        {open ? (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="chat-icon"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /></svg>
+        ) : (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="chat-icon chat-spark">
+            <path d="M10 3.5c.5 4.6 2.4 6.5 7 7-4.6.5-6.5 2.4-7 7-.5-4.6-2.4-6.5-7-7 4.6-.5 6.5-2.4 7-7z" fill="currentColor" />
+            <path d="M18.5 3c.2 1.9 1 2.7 2.9 2.9-1.9.2-2.7 1-2.9 2.9-.2-1.9-1-2.7-2.9-2.9 1.9-.2 2.7-1 2.9-2.9z" fill="currentColor" />
+            <path d="M18 15.5c.2 1.6.9 2.3 2.5 2.5-1.6.2-2.3.9-2.5 2.5-.2-1.6-.9-2.3-2.5-2.5 1.6-.2 2.3-.9 2.5-2.5z" fill="currentColor" />
+          </svg>
+        )}
       </button>
     </div>
   );

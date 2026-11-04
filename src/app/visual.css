@@ -102,7 +102,13 @@ body:has(.footer-bar) .chat { bottom: 92px; }
 .banner { border-radius: var(--r-3); }
 
 /* ---------- the assistant ---------- */
-.chat-launch { border-radius: var(--r-pill); padding: 10px 18px; }
+.chat-launch { border-radius: 50%; width: 56px; height: 56px; padding: 0; display: grid; place-items: center; position: relative; }
+.chat-icon { width: 26px; height: 26px; }
+.chat-spark { transition: transform .35s var(--ease-out, ease); }
+.chat-launch:hover .chat-spark { transform: rotate(18deg) scale(1.1); }
+.chat-launch[aria-expanded="false"]::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; animation: chat-ping 3.2s ease-out 2s infinite; pointer-events: none; }
+@keyframes chat-ping { 0% { opacity: .55; transform: scale(.92); } 70%, 100% { opacity: 0; transform: scale(1.35); } }
+@media (prefers-reduced-motion: reduce) { .chat-launch::after { animation: none; } .chat-spark { transition: none; } }
 .chat-panel { border-radius: var(--r-4); background: var(--glass); -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4); border-color: var(--hairline); }
 .chat-msg { border-radius: var(--r-3); }
 .chat-user { border-radius: var(--r-3) var(--r-3) 4px var(--r-3); }
