@@ -63,7 +63,7 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
           once: true,
           onEnter: () => {
             gsap.to(needle, { rotation: target, svgOrigin: `${CX} ${CY}`, duration: t.slow * 1.8, ease: "elastic.out(1, 0.6)" });
-            if (fill) gsap.to(fill, { drawSVG: `0% ${(target / 180) * 100}%`, duration: t.slow * 1.4, ease: t.easeOut });
+            if (fill) gsap.to(fill, { drawSVG: "0% 100%", duration: t.slow * 1.4, ease: t.easeOut });
             if (num && value !== null) {
               const o = { v: 0 };
               gsap.to(o, { v: value, duration: t.slow * 1.4, ease: t.easeOut, onUpdate: () => { num.textContent = changeWords(o.v).amount; } });
@@ -87,7 +87,7 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
         <path d={arc(toDeg(warnPct), toDeg(killPct))} fill="none" stroke="var(--st-demand-bg)" strokeWidth="14" />
         <path d={arc(toDeg(killPct), 180)} fill="none" stroke="var(--st-stockout-bg)" strokeWidth="14" />
         <path d={arc(0, toDeg(warnPct))} fill="none" stroke="var(--accent)" strokeWidth="2" opacity=".55" transform="translate(0 -11)" strokeDasharray="1 5" />
-        {value !== null ? <path className="ag-fill" d={arc(0, Math.max(target, 0.01))} fill="none" stroke={colour} strokeWidth="14" strokeLinecap="round" opacity=".9" /> : null}
+        {value !== null ? <path className="ag-fill" d={arc(Math.min(toDeg(0), target), Math.max(toDeg(0), target) + 0.01)} fill="none" stroke={colour} strokeWidth="14" strokeLinecap="round" opacity=".9" /> : null}
         {[{ v: warnPct, c: "var(--st-demand)", l: `${warnPct}% worse` }, { v: killPct, c: "var(--st-stockout)", l: `${killPct}% worse` }].map((m) => {
           const a = polar(toDeg(m.v), R + 13);
           return <text key={m.l} x={a.x} y={a.y + 3} textAnchor="middle" className="ag-tick" fill={m.c}>{m.l}</text>;
