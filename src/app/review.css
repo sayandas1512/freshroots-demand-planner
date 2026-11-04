@@ -43,7 +43,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; background: var(--surface-
 .table > [role="row"], .table [role="rowgroup"], .virtual-scroller { min-width: 1320px; }
 .row {
   position: relative; display: grid; align-items: center; column-gap: var(--s-3);
-  grid-template-columns: 200px 150px 140px minmax(230px, 1fr) minmax(320px, 1.7fr) 84px 200px;
+  grid-template-columns: 200px 150px 140px minmax(230px, 1fr) minmax(320px, 1.7fr) 150px 200px;
   min-height: var(--row-h); padding: 10px var(--s-3) 10px var(--s-4);
   border-bottom: 1px solid var(--border); border-left: 4px solid var(--border-strong); background: var(--surface);
 }

@@ -79,8 +79,8 @@ export function Chip({ className, Icon, children, title }: { className: string; 
 
 export function SourceChip({ source }: { source: "llm" | "template" }) {
   return source === "llm" ? (
-    <Chip className="chip-plain" Icon={IconLlm} title="Wording written by the language model and checked against the computed numbers">LLM</Chip>
+    <Chip className="chip-plain" Icon={IconLlm} title="Wording written by the AI model (Gemini) and checked against the computed numbers. The action and figures come from the rules, not the AI.">AI-written</Chip>
   ) : (
-    <Chip className="chip-plain" Icon={IconTemplate} title="Wording from a fixed template">Template</Chip>
+    <Chip className="chip-plain" Icon={IconTemplate} title="Standard wording filled in from the computed numbers. Used when the AI model is unavailable or its wording fails the check. The action and figures are the same either way.">Standard wording</Chip>
   );
 }

@@ -92,6 +92,19 @@ export function ArcGauge({ value, warnPct, killPct, title, detail, testId }: Pro
           const a = polar(toDeg(m.v), R + 13);
           return <text key={m.l} x={a.x} y={a.y + 3} textAnchor="middle" className="ag-tick" fill={m.c}>{m.l}</text>;
         })}
+        {(() => {
+          // where "same as the baseline" sits, and what the far left end of the dial means
+          const a = polar(toDeg(0), R + 13);
+          const b = polar(toDeg(0), R + 7);
+          const c = polar(toDeg(0), R - 9);
+          return (
+            <g aria-hidden="true">
+              <line x1={b.x} y1={b.y} x2={c.x} y2={c.y} stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+              <text x={a.x - 2} y={a.y + 1} textAnchor="end" className="ag-tick" fill="var(--text-muted)">same</text>
+              <text x={CX - R - 7} y={CY + 22} textAnchor="start" className="ag-tick" fill="var(--accent)">{Math.abs(MIN)}%+ better</text>
+            </g>
+          );
+        })()}
         <g className="ag-needle">
           <line x1={CX} y1={CY} x2={tip.x} y2={tip.y} stroke="var(--text)" strokeWidth="3" strokeLinecap="round" />
           <circle cx={CX} cy={CY} r="7" fill="var(--text)" />
