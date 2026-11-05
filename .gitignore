@@ -12,3 +12,4 @@ out
 .claude/
 
 fixtures/synthetic/
+docs/BUILD_PROMPT.md
