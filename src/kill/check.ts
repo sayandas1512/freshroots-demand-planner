@@ -128,8 +128,11 @@ export function executeKillCheck(input: KillInput): KillResult {
     }
     const needed = t.indicatorConsecutiveChecks - 1;
     const status: CriterionStatus = level === "kill" ? (streak >= needed ? "kill" : "warn") : level === "warn" ? "warn" : "ok";
-    const detail = level === "kill" ? `Breach at this check; ${streak + 1} of ${t.indicatorConsecutiveChecks} consecutive checks.` : `4-week average ${avg.toFixed(1)} against a baseline of ${base.toFixed(1)}.`;
-    return { id, label, status, value: `${pct(worse)} worse (${avg.toFixed(1)} vs ${base.toFixed(1)})`, threshold, detail };
+    const show = key === "overstock" ? lakh : (v: number) => v.toFixed(1);
+    const detail = level === "kill" ? `Breach at this check; ${streak + 1} of ${t.indicatorConsecutiveChecks} consecutive checks.` : `4-week average ${show(avg)} against a baseline of ${show(base)}.`;
+    const direction = worse < 0 ? "better" : worse > 0 ? "worse" : "level";
+    const amount = direction === "level" ? "same as baseline" : `${pct(Math.abs(worse))} ${direction} than baseline`;
+    return { id, label, status, value: `${amount} (${show(avg)} vs ${show(base)})`, threshold, detail };
   };
   criteria.push(indicator("indicator_stockout", "Weekly stockout incidents", (r) => r.stockout, w.baseline?.stockout, "stockout"));
   criteria.push(indicator("indicator_overstock", "Weekly overstock value", (r) => r.overstockValue, w.baseline?.overstockValue, "overstock"));

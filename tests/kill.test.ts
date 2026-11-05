@@ -46,6 +46,14 @@ describe("criterion 2: weekly indicators", () => {
     expect(percentWorse(3, 0)).toBe(100);
     expect(percentWorse(8, 10)).toBeCloseTo(-20, 9);
   });
+  it("says better or worse than baseline in words, never a minus sign, and writes rupees in lakh", () => {
+    const better = executeKillCheck(input({ weekly: { baseline: { stockout: 10, overstockValue: 1e6 }, recent: weeks(8, 9e5), history: [] } }));
+    expect(byId(better, "indicator_stockout").value).toBe("20.0% better than baseline (8.0 vs 10.0)");
+    expect(byId(better, "indicator_overstock").value).toBe("10.0% better than baseline (₹9.0 lakh vs ₹10.0 lakh)");
+    const worse = executeKillCheck(input({ weekly: { baseline: { stockout: 10, overstockValue: 1e6 }, recent: weeks(12, 1e6), history: [] } }));
+    expect(byId(worse, "indicator_stockout").value).toBe("20.0% worse than baseline (12.0 vs 10.0)");
+    expect(byId(worse, "indicator_overstock").value).toBe("same as baseline (₹10.0 lakh vs ₹10.0 lakh)");
+  });
   it("is ok at or below the warn threshold, warns above 10%, and a first breach above 20% only warns", () => {
     const at = executeKillCheck(input({ weekly: { baseline: { stockout: 10, overstockValue: 1e6 }, recent: weeks(11, 1e6), history: [] } }));
     expect(byId(at, "indicator_stockout").status).toBe("ok"); // exactly 10% worse

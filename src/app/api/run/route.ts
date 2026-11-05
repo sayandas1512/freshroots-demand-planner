@@ -39,8 +39,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
 
   const db = await getDb();
-  if (openAccessEnabled()) await rollForwardDemoData(db, todayIst());
-  const started = await startRun(db, { trigger: "manual", asOf: parsed.data.asOf ?? todayIst(), startedBy: actor.userId });
+  const asOf = parsed.data.asOf ?? todayIst();
+  if (openAccessEnabled()) await rollForwardDemoData(db, asOf);
+  const started = await startRun(db, { trigger: "manual", asOf, startedBy: actor.userId });
   if (started.reason === "killed") return NextResponse.json({ error: "The kill switch is on. Nothing was run.", runId: started.runId, reason: "killed" }, { status: 423 });
   const origin = publicOrigin(request);
   if (started.created) after(() => driveRun(db, origin, started.runId));
