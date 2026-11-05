@@ -127,6 +127,29 @@ describe("generateNarrative", () => {
     expect(n.explanations[0]?.text).toBe(templateReason(flaggedFacts[0]!));
     expect(n.explanations[1]?.source).toBe("llm");
   });
+  it("asks again once for a reason or headline that failed validation, and uses the second answer when it passes", async () => {
+    let explainCalls = 0;
+    let headlineCalls = 0;
+    const good = provider();
+    const p = provider({
+      explain: async (facts) => {
+        explainCalls += 1;
+        if (explainCalls === 1) return { reasons: facts.map((x) => ({ sku_id: x.skuId, reason: "Demand is up 777% this quarter." })), usage: { inputTokens: 1, outputTokens: 1 } };
+        return good.explain(facts, new AbortController().signal);
+      },
+      headline: async (f, signal) => {
+        headlineCalls += 1;
+        if (headlineCalls === 1) return { headline: ["99 SKUs were reviewed.", "b", "c"], usage: { inputTokens: 1, outputTokens: 1 } };
+        return good.headline(f, signal);
+      },
+    });
+    const n = await generateNarrative(p, flaggedFacts, headlineFacts);
+    expect(explainCalls).toBe(2);
+    expect(headlineCalls).toBe(2);
+    expect(n.llmStatus).toBe("ok");
+    expect(n.explanations.every((e) => e.source === "llm")).toBe(true);
+    expect(n.headline.source).toBe("llm");
+  });
   it("retries once, then falls back when the provider keeps failing (status failed)", async () => {
     let calls = 0;
     const failing = provider({

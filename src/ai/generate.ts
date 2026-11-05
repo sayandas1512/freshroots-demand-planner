@@ -74,23 +74,35 @@ export async function explainChunk(provider: LlmProvider | null, flagged: readon
 
   const byId = new Map(explanations.map((e) => [e.skuId, e]));
   const factsById = new Map(flagged.map((f) => [f.skuId, f]));
-  for (let i = 0; i < flagged.length; i += BATCH_SIZE) {
-    const batch = flagged.slice(i, i + BATCH_SIZE);
-    const res = await attempt((signal) => provider.explain([...batch], signal), callTimeoutMs, counter);
-    if (!res) continue;
+  /** Ask for one batch, keep every reason that passes the guardrails, and return the facts that did not pass. */
+  async function askAndCheck(batch: readonly ExplainFacts[]): Promise<ExplainFacts[]> {
+    const res = await attempt((signal) => provider!.explain([...batch], signal), callTimeoutMs, counter);
+    if (!res) return [];
     addUsage(usage, res.usage);
     const asked = new Set(batch.map((b) => b.skuId));
     const seen = new Set<string>();
+    const rejected: ExplainFacts[] = [];
     for (const { sku_id, reason } of res.reasons) {
       const facts = factsById.get(sku_id);
       const target = byId.get(sku_id);
       if (!facts || !target || !asked.has(sku_id) || seen.has(sku_id)) continue;
       seen.add(sku_id);
-      if (validateReason(reason, facts).ok) {
+      const verdict = validateReason(reason, facts);
+      if (verdict.ok) {
         target.text = reason.trim();
         target.source = "llm";
+      } else {
+        rejected.push(facts);
+        log("warn", "llm.reason_rejected", { skuId: sku_id, problems: verdict.problems.slice(0, 5), reason: reason.slice(0, 300) });
       }
     }
+    return rejected;
+  }
+
+  for (let i = 0; i < flagged.length; i += BATCH_SIZE) {
+    const rejected = await askAndCheck(flagged.slice(i, i + BATCH_SIZE));
+    // The model is not perfectly repeatable: a reason that failed the check often passes when asked again, once.
+    if (rejected.length > 0) await askAndCheck(rejected);
   }
   return { explanations, calls: counter.calls, usage };
 }
@@ -101,12 +113,16 @@ export async function headlineFor(provider: LlmProvider | null, facts: HeadlineF
   const usage: LlmUsage = { inputTokens: 0, outputTokens: 0 };
   const counter = { calls: 0 };
   if (!provider) return { ...result, calls: 0, usage };
-  const hl = await attempt((signal) => provider.headline(facts, signal), callTimeoutMs, counter);
-  if (hl) {
+  for (let tries = 0; tries < 2 && result.source === "template"; tries += 1) {
+    const hl = await attempt((signal) => provider.headline(facts, signal), callTimeoutMs, counter);
+    if (!hl) break;
     addUsage(usage, hl.usage);
-    if (validateHeadline(hl.headline, facts).ok) {
+    const verdict = validateHeadline(hl.headline, facts);
+    if (verdict.ok) {
       result.lines = [hl.headline[0].trim(), hl.headline[1].trim(), hl.headline[2].trim()];
       result.source = "llm";
+    } else {
+      log("warn", "llm.headline_rejected", { problems: verdict.problems.slice(0, 5), lines: hl.headline.map((l) => l.slice(0, 200)) });
     }
   }
   return { ...result, calls: counter.calls, usage };
