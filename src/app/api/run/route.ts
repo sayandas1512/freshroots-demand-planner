@@ -5,8 +5,10 @@ import { getDb } from "@/db/client";
 import { parseDate } from "@/engine/weeks";
 import { todayIst } from "@/lib/dates";
 import { clientKey, rateLimit } from "@/lib/ratelimit";
+import { openAccessEnabled } from "@/auth/guest";
 import { driveRun } from "@/run/drive";
 import { startRun } from "@/run/execute";
+import { rollForwardDemoData } from "@/run/rollforward";
 import { publicOrigin } from "@/lib/origin";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400 });
 
   const db = await getDb();
+  if (openAccessEnabled()) await rollForwardDemoData(db, todayIst());
   const started = await startRun(db, { trigger: "manual", asOf: parsed.data.asOf ?? todayIst(), startedBy: actor.userId });
   if (started.reason === "killed") return NextResponse.json({ error: "The kill switch is on. Nothing was run.", runId: started.runId, reason: "killed" }, { status: 423 });
   const origin = publicOrigin(request);
